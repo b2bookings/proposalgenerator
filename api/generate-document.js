@@ -399,7 +399,7 @@ function buildProject(cfg) {
 // ── Claude API call ───────────────────────────────────────────────────────────
 function callClaude(messages, maxTokens = 4096) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: maxTokens, messages });
+    const body = JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, messages });
     const req = https.request({
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01' }
