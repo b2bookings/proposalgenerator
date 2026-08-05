@@ -98,6 +98,16 @@ function makeFooter() {
 function coverPage(cfg) {
   const c = cfg.client || {};
   const sg = cfg.sg_signer || {};
+
+  // Only show contact if we have a meaningful name (not single word like "Gram")
+  const hasFullClientContact = c.site_contact && c.site_contact.trim().includes(' ');
+  const hasFullSgName = sg.name && sg.name.trim().includes(' ');
+
+  // Build "Prepared by" line without em dash
+  const sgLine = hasFullSgName
+    ? `${sg.name}${sg.title ? ', ' + sg.title : ''}, Solution Group`
+    : 'Solution Group';
+
   return [
     ...spacer(2),
     new Paragraph({ spacing: sp(0, 200), children: [new ImageRun({ data: LOGO, transformation: { width: 120, height: 100 }, type: 'png' })] }),
@@ -106,10 +116,10 @@ function coverPage(cfg) {
     new Paragraph({ spacing: sp(0, 240), border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: BLUE } }, children: [] }),
     new Paragraph({ spacing: sp(200, 40), children: [new TextRun({ text: 'Prepared for:', bold: true, size: 20, color: GRAY, font: 'Calibri' })] }),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: c.name || '[Client]', bold: true, size: 28, color: BLUE, font: 'Calibri' })] }),
-    new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: c.address || '', size: 22, color: GRAY, font: 'Calibri' })] }),
-    ...(c.site_contact ? [new Paragraph({ spacing: sp(0, 160), children: [new TextRun({ text: `${c.site_contact}  |  ${c.site_contact_title || ''}`, size: 22, color: GRAY, font: 'Calibri' })] })] : []),
+    ...(c.address ? [new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: c.address, size: 22, color: GRAY, font: 'Calibri' })] })] : []),
+    ...(hasFullClientContact ? [new Paragraph({ spacing: sp(0, 160), children: [new TextRun({ text: `${c.site_contact}${c.site_contact_title ? ', ' + c.site_contact_title : ''}`, size: 22, color: GRAY, font: 'Calibri' })] })] : []),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: 'Prepared by:', bold: true, size: 20, color: GRAY, font: 'Calibri' })] }),
-    new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: `${sg.name || 'Solution Group'},  ${sg.title || ''}  —  Solution Group`, size: 22, color: GRAY, font: 'Calibri' })] }),
+    new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: sgLine, size: 22, color: GRAY, font: 'Calibri' })] }),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: `Date: ${cfg.proposal_date || cfg.date || new Date().toLocaleDateString()}`, size: 22, color: GRAY, font: 'Calibri' })] }),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: 'Valid for 30 days from date above.', size: 18, italic: true, color: '888888', font: 'Calibri' })] }),
     pb()
@@ -388,13 +398,13 @@ function buildProject(cfg) {
     ...coverPage(cfg),
     blueBar(`${sn()}. Proposal Introduction`), ...spacer(1),
     body(sections.introduction || ''),
-    ...spacer(1), pb(),
+    ...spacer(2),
     blueBar(`${sn()}. Project Confirmation`), ...spacer(1),
     body(sections.project_confirmation || 'The scope of work for this project is documented in the site assessment. This proposal reflects the commercial terms for that project scope.'),
-    ...spacer(1), pb(),
+    ...spacer(2),
     blueBar(`${sn()}. Engineering Scope Summary`), ...spacer(1),
     body(sections.engineering_scope || ''),
-    ...spacer(1), pb(),
+    ...spacer(2),
     blueBar(`${sn()}. Commercial Summary`), ...spacer(1),
     new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [7200, 2160], rows: [pricingHeaderRow, ...categoryRows, totalRow] }),
     ...spacer(1),
@@ -402,17 +412,15 @@ function buildProject(cfg) {
     ...(pricing.pricing_notes || []).map(n => body(n, { italic: true })),
     body('Standard Solution Group progress billing terms apply: deposit at signing, progress billing through installation, final balance at substantial completion.', { italic: true }),
     body('This proposal is valid for 30 days from the date above. Sales tax is added by Solution Group Accounting on all estimates.', { italic: true }),
-    ...spacer(1), pb(),
+    ...spacer(2),
     ...(timeline.length ? [
       blueBar(`${sn()}. Project Timeline`), ...spacer(1),
-      body('The following is a rough project schedule from award; final scheduling will be confirmed based on parts lead time and site availability.'),
-      ...spacer(1),
       new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [2880, 6480], rows: [timelineHeaderRow, ...timelineRows] }),
-      ...spacer(1), pb(),
+      ...spacer(2),
     ] : []),
     blueBar(`${sn()}. Key Assumptions & Exclusions`), ...spacer(1),
     ...(cfg.assumptions_exclusions || []).map(bullet),
-    ...spacer(1), pb(),
+    ...spacer(2),
     blueBar(`${sn()}. Next Steps`), ...spacer(1),
     ...(cfg.next_steps || []).map(bullet),
     ...spacer(1),
@@ -539,7 +547,10 @@ CRITICAL RULES:
 - No monthly/annual columns — project proposals have a single total investment figure
 - Cover page: use what's available; minimal is fine; never leave blanks
 - Pricing MUST be rolled up into max 4 categories — never individual line items
-- Engineering scope = narrative description of what the system does, not a parts list
+- Engineering scope = 2-3 short paragraphs max, what the system accomplishes and why, NOT a parts list. Concise and executive-readable.
+- Timeline: ONLY include if user explicitly provided specific milestone dates or a schedule. A single start date does NOT warrant a timeline table — put it in assumptions/next steps instead. Return timeline as null if no meaningful schedule provided.
+- Contact names: only include if you have both first AND last name. Single names (e.g. "Gram") must be omitted entirely from contacts.
+- Never use em dashes anywhere. Use commas or periods instead.
 
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:
