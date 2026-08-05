@@ -495,7 +495,7 @@ async function callClaude(messageContent, maxTokens=8000, attempt=1) {
       method:"POST",
       signal: controller.signal,
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTokens, messages:[{role:"user",content:messageContent}] }),
+      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTokens, messages:[{role:"user",content:messageContent}] }),
     });
     clearTimeout(tid);
     if (!resp.ok) {
