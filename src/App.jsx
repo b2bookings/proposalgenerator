@@ -370,23 +370,23 @@ function buildParsePrompt(docType, pastedText, fileNames) {
 ${pastedText ? `\nPASTED TEXT:\n${pastedText}\n` : ""}
 ${fileNames.length ? `Files provided: ${fileNames.join(", ")}` : ""}
 
-Return ONLY valid JSON (no markdown, no preamble) with values for any of these keys you can find:
+CRITICAL: Return ONLY a flat JSON object — every value must be a plain string or number. No nested objects, no arrays, no null. Use empty string "" for anything not found. Do not include markdown fences or any text outside the JSON.
+
+Extract values for these keys:
 ${JSON.stringify(allKeys)}
 
-FIELD MAPPING GUIDANCE — be aggressive about inferring these:
-- "sgContactName": look for the SG rep, account manager, or "Prepared By" on the SG side. If none found, default to "Ted Winkelman".
-- "sgContactEmail": if none found and sgContactName defaults to Ted Winkelman, use "twinkelman@solutionmgt.com".
-- "dealAmount": look for ANY total dollar figure — "TOTAL PROJECT INVESTMENT", "Total", "Grand Total", "Project Total", "Monthly Fee Total", "Total Amount", "TOTAL". Include the $ sign and commas exactly as written, e.g. "$209,509.48". This is the single most important field — do not miss it.
-- "closeDate": use the proposal date, contract date, or any date on the document as a best-guess close date. Format YYYY-MM-DD.
-- "proposalDate": look for "Proposal Date", "Date", document date on cover page. Format YYYY-MM-DD.
-- "clientLegalName" / "clientShortName": look for "Prepared For", client name on cover, or anywhere the customer is named.
-- "projectTitle": look for the main project heading or title.
-- "executiveSummary": extract the full Executive Summary section verbatim, including all paragraphs.
-- "inScope": extract the full In-Scope Deliverables / Project Scope section verbatim, preserving all bullet points.
-- "pricingLineItems": extract the full pricing table rows verbatim, pipe-separated.
-- "implementationPhases": extract the implementation/schedule table rows verbatim.
+FIELD MAPPING GUIDANCE:
+- "sgContactName": look for SG rep or "Prepared By". Default to "Ted Winkelman" if not found.
+- "sgContactEmail": default to "twinkelman@solutionmgt.com" if not found.
+- "dealAmount": look for ANY total dollar figure — "TOTAL PROJECT INVESTMENT", "Total", "Grand Total". Include $ and commas exactly, e.g. "$209,509.48". Most important field.
+- "closeDate": use proposal date as best-guess. Format YYYY-MM-DD.
+- "proposalDate": look for "Proposal Date" or document date. Format YYYY-MM-DD.
+- "clientLegalName" / "clientShortName": look for "Prepared For" or client name on cover.
+- "projectTitle": main project heading or title.
+- "executiveSummary": executive summary text (truncate to 500 chars if very long).
+- "inScope": in-scope deliverables as a single string with items separated by newlines.
 
-Dates → YYYY-MM-DD. closeProbability → number 0-100. Empty string for not found. Be aggressive — infer from context if not labeled exactly.`;
+Dates → YYYY-MM-DD. closeProbability → number 0-100. All other values → plain strings.`;
 }
 
 function buildDocPrompt(docType, formData, pastedText, uploadedFiles) {
@@ -668,11 +668,29 @@ export default function App() {
         }
       }
       content.push({ type:"text", text:buildParsePrompt(docType, pastedText, files.map(f=>f.name)) });
-      const raw = await callClaude(content, 1500);
-      // Extract JSON even if Claude wraps it in extra text or markdown
-      const jsonMatch = raw.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON found in response — try again.");
-      const extracted = JSON.parse(jsonMatch[0]);
+      const raw = await callClaude(content, 2500);
+
+      // Robust JSON extraction — handles markdown fences, extra text, and minor formatting issues
+      let extracted = {};
+      try {
+        // First try: extract the outermost { } block
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("no json block");
+        extracted = JSON.parse(jsonMatch[0]);
+      } catch(parseErr) {
+        // Second try: strip control characters and retry
+        try {
+          const cleaned = raw
+            .replace(/```json|```/g, '')
+            .replace(/[\x00-\x1F\x7F]/g, m => m === '\n' || m === '\r' || m === '\t' ? m : '')
+            .trim();
+          const jsonMatch2 = cleaned.match(/\{[\s\S]*\}/);
+          if (!jsonMatch2) throw new Error("No JSON found in response — try again.");
+          extracted = JSON.parse(jsonMatch2[0]);
+        } catch(e2) {
+          throw new Error("Could not parse response — try again or paste text manually.");
+        }
+      }
       setParseStep(2);
       const filled = new Set();
       const merged = {...formData};
