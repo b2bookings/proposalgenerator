@@ -302,94 +302,128 @@ function buildAssessment(cfg) {
   });
 }
 
-// ── PROJECT PROPOSAL BUILDER ──────────────────────────────────────────────────
+// ── PROJECT PROPOSAL BUILDER (v6-aligned) ────────────────────────────────────
 function buildProject(cfg) {
   const pricing = cfg.pricing || {};
-  const lineItems = pricing.line_items || [];
-  const phases = cfg.implementation_phases || [];
+  const categories = pricing.categories || [];
+  const timeline = cfg.timeline || [];
+  const sections = cfg.sections || {};
+  const c = cfg.client || {};
+  const sg = cfg.sg_signer || {};
 
+  // Pricing table — 2 columns: Cost Category | Amount
   const pricingHeaderRow = new TableRow({ tableHeader: true, children: [
-    new TableCell({ borders: brd, width: { size: 5040, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: 'Activity / Description', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1080, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Qty', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1620, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Rate', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1620, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Amount', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 7200, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: 'Cost Category', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 2160, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Amount', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
   ]});
 
-  const pricingRows = lineItems.map((li, i) => new TableRow({ children: [
-    new TableCell({ borders: brd, width: { size: 5040, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: li.description || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1080, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: String(li.qty || '1'), size: 20, color: GRAY, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1620, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(li.rate), size: 20, color: GRAY, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1620, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(li.amount), size: 20, color: GRAY, font: 'Calibri' })] })] }),
+  const categoryRows = categories.map((cat, i) => new TableRow({ children: [
+    new TableCell({ borders: brd, width: { size: 7200, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: cat.name || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 2160, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(cat.amount), size: 20, color: GRAY, font: 'Calibri' })] })] }),
   ]}));
 
   const totalRow = new TableRow({ children: [
-    new TableCell({ borders: brd, width: { size: 5040, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: 'TOTAL PROJECT INVESTMENT', bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1080, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [] })] }),
-    new TableCell({ borders: brd, width: { size: 1620, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [] })] }),
-    new TableCell({ borders: brd, width: { size: 1620, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.total), bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 7200, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: 'Total Project Investment', bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 2160, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.total), bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
   ]});
 
-  const scheduleHeaderRow = new TableRow({ tableHeader: true, children: [
-    new TableCell({ borders: brd, width: { size: 3120, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: 'Phase', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 4680, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: 'Key Activities', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1560, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'Est. Duration', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
-  ]});
+  // Timeline table — Timeframe | Activity
+  const timelineHeaderRow = timeline.length ? new TableRow({ tableHeader: true, children: [
+    new TableCell({ borders: brd, width: { size: 2880, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: 'Timeframe', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 6480, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: 'Activity', bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] }),
+  ]}) : null;
 
-  const scheduleRows = phases.map((ph, i) => new TableRow({ children: [
-    new TableCell({ borders: brd, width: { size: 3120, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: ph.name || '', bold: true, size: 20, color: GRAY, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 4680, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ children: [new TextRun({ text: ph.activities || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
-    new TableCell({ borders: brd, width: { size: 1560, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg, children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: ph.duration || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
+  const timelineRows = timeline.map((row, i) => new TableRow({ children: [
+    new TableCell({ borders: brd, width: { size: 2880, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: row.timeframe || '', bold: true, size: 20, color: GRAY, font: 'Calibri' })] })] }),
+    new TableCell({ borders: brd, width: { size: 6480, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
+      children: [new Paragraph({ children: [new TextRun({ text: row.activity || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
   ]}));
 
-  const children = [
-    ...coverPage(cfg),
-    blueBar('1. Executive Summary'), ...spacer(1), body(cfg.executive_summary || ''), ...spacer(1), pb(),
-    blueBar('2. Project Scope'), ...spacer(1),
-    ...(cfg.in_scope?.length ? [new Paragraph({ spacing: sp(120, 60), children: [new TextRun({ text: 'In-Scope Deliverables', bold: true, size: 24, color: BLUE, font: 'Calibri' })] }), ...cfg.in_scope.map(bullet)] : []),
-    ...spacer(1),
-    ...(cfg.out_of_scope?.length ? [new Paragraph({ spacing: sp(120, 60), children: [new TextRun({ text: 'Out of Scope', bold: true, size: 24, color: BLUE, font: 'Calibri' })] }), ...cfg.out_of_scope.map(bullet)] : []),
-    ...spacer(1), pb(),
-    blueBar('3. System Architecture'), ...spacer(1), body(cfg.system_architecture || ''), ...spacer(1), pb(),
-    ...(cfg.site_specific ? [blueBar('4. Site-Specific Technical Notes'), ...spacer(1), body(cfg.site_specific), ...spacer(1), pb()] : []),
-    blueBar('5. Implementation Schedule'), ...spacer(1),
-    ...(scheduleRows.length ? [new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [3120, 4680, 1560], rows: [scheduleHeaderRow, ...scheduleRows] })] : [body('[Schedule to be confirmed.]')]),
-    ...spacer(1), pb(),
-    blueBar('6. Pricing Summary'), ...spacer(1),
-    new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [5040, 1080, 1620, 1620], rows: [pricingHeaderRow, ...pricingRows, totalRow] }),
-    ...spacer(1),
-    ...(cfg.pricing_notes || []).map(bullet),
-    body('Payment: 50% deposit / 25% at mechanical completion / 25% at project handover.', { italic: true }),
-    body('Pricing is valid for 30 days from proposal date.', { italic: true }),
-    ...spacer(1), pb(),
-    blueBar('7. Terms & Conditions'), ...spacer(1),
-    body(`Warranty: ${cfg.warranty_duration || '6 months'} on equipment and installation; sensor calibration and reagent consumables excluded.`),
-    body('Change Orders: Any changes to the agreed scope of work must be submitted in writing and approved by both parties prior to execution. Changes may affect project schedule and pricing.'),
-    ...spacer(1),
-    ...(cfg.assumptions_exclusions || []).map(bullet),
-    ...spacer(1),
-    body('Questions? Contact the Solution Group project team to discuss this proposal.'),
+  // Signature block — optional
+  const sigBlock = cfg.include_signature ? [
     pb(),
-    blueBar('8. Proposal Acceptance'), ...spacer(1),
+    blueBar('Proposal Acceptance'), ...spacer(1),
     new Table({
       width: { size: 9360, type: WidthType.DXA }, columnWidths: [4680, 4680],
       borders: { top: nb, bottom: nb, left: nb, right: nb, insideH: nb, insideV: nb },
       rows: [new TableRow({ children: [
         new TableCell({ borders: noBorders, width: { size: 4680, type: WidthType.DXA }, children: [
-          new Paragraph({ children: [new TextRun({ text: cfg.client?.name || 'Client', bold: true, size: 22, color: BLUE, font: 'Calibri' })] }),
-          ...['Signature: ___________________________', 'Print Name: __________________________', 'Title: _______________________________', 'Date: ________________________________'].map(l => body(l)),
+          new Paragraph({ spacing: sp(0, 120), children: [new TextRun({ text: c.name || 'Client', bold: true, size: 22, color: BLUE, font: 'Calibri' })] }),
+          ...(c.site_contact ? [body(c.site_contact)] : []),
+          ...(c.site_contact_title ? [body(c.site_contact_title)] : []),
+          ...spacer(1),
+          body('Signature: ___________________________'),
+          body('Name: _______________________________'),
+          body('Title: _______________________________'),
+          body('Date: ________________________________'),
         ]}),
         new TableCell({ borders: noBorders, width: { size: 4680, type: WidthType.DXA }, children: [
-          new Paragraph({ children: [new TextRun({ text: 'Solution Group', bold: true, size: 22, color: BLUE, font: 'Calibri' })] }),
-          ...['Signature: ___________________________', 'Print Name: __________________________', 'Title: _______________________________', 'Date: ________________________________'].map(l => body(l)),
+          new Paragraph({ spacing: sp(0, 120), children: [new TextRun({ text: 'Solution Group', bold: true, size: 22, color: BLUE, font: 'Calibri' })] }),
+          ...(sg.name ? [body(sg.name)] : []),
+          ...(sg.title ? [body(sg.title)] : []),
+          ...spacer(1),
+          body('Signature: ___________________________'),
+          body('Name: _______________________________'),
+          body('Title: _______________________________'),
+          body('Date: ________________________________'),
         ]}),
       ]})]
     }),
+  ] : [];
+
+  // Section numbering — adjust if timeline present
+  let sectionNum = 1;
+  const sn = () => sectionNum++;
+
+  const children = [
+    ...coverPage(cfg),
+    blueBar(`${sn()}. Proposal Introduction`), ...spacer(1),
+    body(sections.introduction || ''),
+    ...spacer(1), pb(),
+    blueBar(`${sn()}. Project Confirmation`), ...spacer(1),
+    body(sections.project_confirmation || 'The scope of work for this project is documented in the site assessment. This proposal reflects the commercial terms for that project scope.'),
+    ...spacer(1), pb(),
+    blueBar(`${sn()}. Engineering Scope Summary`), ...spacer(1),
+    body(sections.engineering_scope || ''),
+    ...spacer(1), pb(),
+    blueBar(`${sn()}. Commercial Summary`), ...spacer(1),
+    new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [7200, 2160], rows: [pricingHeaderRow, ...categoryRows, totalRow] }),
+    ...spacer(1),
+    ...(pricing.contingency_notes || []).map(n => body(n, { italic: true })),
+    ...(pricing.pricing_notes || []).map(n => body(n, { italic: true })),
+    body('Standard Solution Group progress billing terms apply: deposit at signing, progress billing through installation, final balance at substantial completion.', { italic: true }),
+    body('This proposal is valid for 30 days from the date above. Sales tax is added by Solution Group Accounting on all estimates.', { italic: true }),
+    ...spacer(1), pb(),
+    ...(timeline.length ? [
+      blueBar(`${sn()}. Project Timeline`), ...spacer(1),
+      body('The following is a rough project schedule from award; final scheduling will be confirmed based on parts lead time and site availability.'),
+      ...spacer(1),
+      new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [2880, 6480], rows: [timelineHeaderRow, ...timelineRows] }),
+      ...spacer(1), pb(),
+    ] : []),
+    blueBar(`${sn()}. Key Assumptions & Exclusions`), ...spacer(1),
+    ...(cfg.assumptions_exclusions || []).map(bullet),
+    ...spacer(1), pb(),
+    blueBar(`${sn()}. Next Steps`), ...spacer(1),
+    ...(cfg.next_steps || []).map(bullet),
+    ...spacer(1),
+    body('We look forward to the conversation and are ready to move forward on your timeline.'),
+    ...sigBlock,
   ];
 
   return new Document({
     numbering: { config: [{ reference: 'bullets', levels: [{ level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 360 } } } }] }] },
     sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 900, left: 1080 } } },
-      headers: { default: makeHeader(cfg.client?.short_name, cfg.proposal_title || 'Project Proposal') },
+      headers: { default: makeHeader(c.short_name || c.name, cfg.proposal_title || 'Project Proposal') },
       footers: { default: makeFooter() },
       children
     }]
@@ -422,31 +456,41 @@ function callClaude(messages, maxTokens = 4096) {
 
 // ── Config extraction prompts ─────────────────────────────────────────────────
 function proposalConfigPrompt(formData, fileText) {
-  return `You are a Solution Group proposal data extractor. Given this form data and any file content, return a JSON config object for building a branded executive proposal.
+  return `You are a Solution Group proposal data extractor. Given this form data and any file content, return a JSON config object for building a branded reoccurring service proposal.
+
+CRITICAL RULES:
+- Always write "Solution Group" in full — never abbreviate as "SG"
+- Never use [To be confirmed] or any placeholder text — use only what is available; omit fields you cannot fill
+- Cover page: use only information available; a minimal cover page is fine
+- Never expose the 10% markup as a line item — it is already baked into pricing
 
 FORM DATA: ${JSON.stringify(formData)}
-${fileText ? `FILE CONTENT:\n${fileText}` : ''}
+${fileText ? `FILE CONTENT:
+${fileText}` : ''}
 
 Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 {
   "proposal_title": "string — e.g. 'Industrial Wastewater Monitoring & Services'",
   "proposal_date": "string — formatted date",
-  "client": { "name": "full legal name", "short_name": "short name", "address": "address", "site_contact": "contact name", "site_contact_title": "title" },
-  "sg_signer": { "name": "SG rep name", "title": "title", "phone": "phone", "email": "email" },
+  "client": { "name": "full legal name", "short_name": "short name", "address": "address or empty string", "site_contact": "contact name or empty string", "site_contact_title": "title or empty string" },
+  "sg_signer": { "name": "Solution Group rep name", "title": "title", "phone": "phone or empty string", "email": "email or empty string" },
   "sections": {
-    "introduction": "full paragraph for section 1",
-    "service_confirmation": "full paragraph for section 2"
+    "introduction": "1-2 short paragraphs — concise, professional, no equipment lists",
+    "service_confirmation": "2-3 sentences confirming what Solution Group will deliver"
   },
   "pricing": {
     "monthly_total": number,
     "annual_total": number,
-    "line_items": [{ "description": "string", "monthly": number }]
+    "line_items": [{ "description": "string", "monthly": number }],
+    "include_opticlear": true or false
   },
-  "assumptions_exclusions": ["bullet string", ...],
-  "next_steps": ["bullet string", ...]
+  "timeline": "string or null — timeline description if provided",
+  "include_signature": true or false,
+  "assumptions_exclusions": ["bullet string"],
+  "next_steps": ["bullet string"]
 }
 
-Be thorough. Extract everything available from the file content. Use [To be confirmed] for missing required fields.`;
+Extract everything available. For client/SG contacts: use what you have, leave fields as empty string if unknown.`;
 }
 
 function assessmentConfigPrompt(formData, fileText) {
@@ -477,31 +521,59 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 }
 
 function projectConfigPrompt(formData, fileText) {
-  return `You are a Solution Group project proposal data extractor. Given this form data and any file content, return a JSON config for building a branded capital project proposal.
+  return `You are a Solution Group project proposal data extractor. Given this form data and any file content, return a JSON config for building a branded capital project proposal modeled after this structure:
+
+SECTION STRUCTURE (follow exactly):
+1. Proposal Introduction — 1-2 short paragraphs, NO equipment lists, reference assessment doc for detail
+2. Project Confirmation — 2 sentences confirming scope is in the assessment document
+3. Engineering Scope Summary — narrative by concept (what the system does), NOT by equipment line item
+4. Commercial Summary — 4 rolled-up categories ONLY: Parts & Equipment | Engineering & Labor | Operations & Management | OptiClear Remote Management (if applicable)
+5. Project Timeline — only if timeline data provided
+6. Key Assumptions & Exclusions — brief bullets
+7. Next Steps — brief bullets
+
+CRITICAL RULES:
+- Always write "Solution Group" in full — NEVER abbreviate as "SG"  
+- Never use [To be confirmed] or any placeholder — use only available info; omit unknown fields
+- Never expose markup/margin as a line item — bake it into category totals silently
+- No monthly/annual columns — project proposals have a single total investment figure
+- Cover page: use what's available; minimal is fine; never leave blanks
+- Pricing MUST be rolled up into max 4 categories — never individual line items
+- Engineering scope = narrative description of what the system does, not a parts list
 
 FORM DATA: ${JSON.stringify(formData)}
-${fileText ? `FILE CONTENT:\n${fileText}` : ''}
+${fileText ? `FILE CONTENT:
+${fileText}` : ''}
 
 Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 {
-  "proposal_title": "project title string",
-  "date": "string",
-  "client": { "name": "full name", "short_name": "short", "address": "address", "site_contact": "name", "site_contact_title": "title" },
-  "sg_signer": { "name": "SG rep", "title": "title" },
-  "executive_summary": "2 paragraph string",
-  "in_scope": ["bullet string", ...],
-  "out_of_scope": ["bullet string", ...],
-  "system_architecture": "multi-paragraph technical description",
-  "site_specific": "site-specific technical notes or null",
-  "implementation_phases": [{ "name": "Phase 1 – Engineering", "activities": "description", "duration": "3 weeks" }],
-  "pricing": {
-    "total": number,
-    "line_items": [{ "description": "string", "qty": "string", "rate": number, "amount": number }]
+  "proposal_title": "project title — e.g. 'pH Adjust System Project Proposal'",
+  "date": "formatted date string",
+  "client": { "name": "full legal name", "short_name": "short name", "address": "address or empty string", "site_contact": "contact name or empty string", "site_contact_title": "title or empty string" },
+  "sg_signer": { "name": "Solution Group rep full name", "title": "title or empty string", "email": "email or empty string" },
+  "sections": {
+    "introduction": "1-2 short paragraphs — concise, no equipment lists",
+    "project_confirmation": "2 sentences — scope is in the assessment doc, this covers commercial terms",
+    "engineering_scope": "narrative paragraphs describing the system concept, architecture, and what it accomplishes — NOT a parts list"
   },
-  "pricing_notes": ["bullet string"],
-  "warranty_duration": "6 months",
-  "assumptions_exclusions": ["bullet string", ...]
-}`;
+  "pricing": {
+    "total": number — the TOTAL project investment figure,
+    "categories": [
+      { "name": "Parts & Equipment", "amount": number },
+      { "name": "Engineering & Labor", "amount": number },
+      { "name": "Operations & Management", "amount": number },
+      { "name": "OptiClear Remote Management", "amount": number }
+    ],
+    "contingency_notes": ["string — note any line items that are budgetary/pending"],
+    "pricing_notes": ["string — e.g. sales tax note, validity period"]
+  },
+  "timeline": [{ "timeframe": "Weeks 1-4", "activity": "Parts procurement" }] or null,
+  "include_signature": true or false,
+  "assumptions_exclusions": ["bullet string"],
+  "next_steps": ["bullet string"]
+}
+
+PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.`;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
