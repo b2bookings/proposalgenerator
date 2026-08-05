@@ -600,21 +600,45 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const { docType, formData, fileContents } = req.body;
+    const { docType, formData, fileContents, previousConfig, revisionInstructions } = req.body;
     const fileText = (fileContents || []).join('\n\n---\n\n');
 
-    // 1. Get the right prompt
-    let prompt;
-    if (docType === 'proposal')   prompt = proposalConfigPrompt(formData, fileText);
-    else if (docType === 'assessment') prompt = assessmentConfigPrompt(formData, fileText);
-    else if (docType === 'project')    prompt = projectConfigPrompt(formData, fileText);
-    else throw new Error(`Unknown docType: ${docType}`);
+    let cfg;
 
-    // 2. Call Claude → get JSON config
-    const raw = await callClaude([{ role: 'user', content: prompt }], 4096);
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Claude did not return valid JSON config.');
-    const cfg = JSON.parse(jsonMatch[0]);
+    if (previousConfig && revisionInstructions) {
+      // ── REVISION MODE: edit the previous config surgically ──
+      const revisionPrompt = `You are editing an existing Solution Group ${docType} proposal config. Make ONLY the specific changes requested. Return the complete updated JSON — every field must be present, unchanged fields must be copied exactly.
+
+CURRENT CONFIG:
+${JSON.stringify(previousConfig, null, 2)}
+
+REVISION INSTRUCTIONS:
+${revisionInstructions}
+
+Rules:
+- Change ONLY what the revision instructions specify
+- Copy all other fields verbatim — do not rephrase, reorder, or improve anything else
+- Never add a signature block unless explicitly requested
+- Never use em dashes
+- Return ONLY valid JSON, no markdown, no preamble`;
+
+      const raw = await callClaude([{ role: 'user', content: revisionPrompt }], 4096);
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Revision did not return valid JSON.');
+      cfg = JSON.parse(jsonMatch[0]);
+    } else {
+      // ── GENERATION MODE: build config from form data ──
+      let prompt;
+      if (docType === 'proposal')        prompt = proposalConfigPrompt(formData, fileText);
+      else if (docType === 'assessment') prompt = assessmentConfigPrompt(formData, fileText);
+      else if (docType === 'project')    prompt = projectConfigPrompt(formData, fileText);
+      else throw new Error(`Unknown docType: ${docType}`);
+
+      const raw = await callClaude([{ role: 'user', content: prompt }], 4096);
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Claude did not return valid JSON config.');
+      cfg = JSON.parse(jsonMatch[0]);
+    }
 
     // Always use formData for include_signature — never let Claude decide this
     cfg.include_signature = formData.includeSignature === 'yes';
@@ -634,6 +658,8 @@ module.exports = async function (req, res) {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Document-Config', Buffer.from(JSON.stringify(cfg)).toString('base64'));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Document-Config');
     res.status(200).send(buffer);
 
   } catch (err) {
