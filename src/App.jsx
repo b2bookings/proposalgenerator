@@ -746,6 +746,31 @@ export default function App() {
       URL.revokeObjectURL(dlUrl);
       setGenerating(false);
       setGenerated(true);
+
+      // Fire HubSpot deal creation silently in background — never blocks download
+      if (docType !== "assessment") {
+        fetch("/api/hubspot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            docType,
+            clientName:           formData.clientLegalName || formData.clientName,
+            clientShortName:      formData.clientShortName,
+            projectTitle:         formData.projectTitle,
+            pipeline:             formData.pipeline,
+            dealAmount:           formData.dealAmount,
+            closeDate:            formData.closeDate,
+            closeProbability:     formData.closeProbability,
+            sgContactName:        formData.sgContactName,
+            sgContactEmail:       formData.sgContactEmail,
+            customerContactName:  formData.customerContactName,
+            customerContactEmail: formData.customerContactEmail,
+          }),
+        }).then(r => r.json()).then(data => {
+          if (data.dealId) console.log(`HubSpot deal created: ${data.dealName} (${data.dealId})`);
+          else console.warn('HubSpot: no deal ID returned', data);
+        }).catch(e => console.warn('HubSpot call failed (non-blocking):', e.message));
+      }
     } catch(e) {
       setGenerating(false);
       setGenErr(`Generation failed: ${e.message}`);
@@ -989,6 +1014,7 @@ export default function App() {
                             URL.revokeObjectURL(dlUrl);
                             setGenerating(false);
                             setGenerated(true);
+                            // Note: HubSpot deal already created on first generation — skip on revision
                           }).catch(e => {
                             setGenerating(false);
                             setGenErr(`Revision failed: ${e.message}`);
