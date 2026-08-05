@@ -584,7 +584,8 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
   "next_steps": ["bullet string"]
 }
 
-PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.`;
+PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.
+${formData.additionalInstructions ? `\nUSER INSTRUCTIONS (follow precisely): ${formData.additionalInstructions}` : ''}`;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -614,6 +615,9 @@ module.exports = async function (req, res) {
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Claude did not return valid JSON config.');
     const cfg = JSON.parse(jsonMatch[0]);
+
+    // Always use formData for include_signature — never let Claude decide this
+    cfg.include_signature = formData.includeSignature === 'yes';
 
     // 3. Build the docx
     let doc;
