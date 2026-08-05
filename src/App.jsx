@@ -588,6 +588,7 @@ export default function App() {
   const [generated,    setGenerated]   = useState(false);
   const [revisions,    setRevisions]   = useState("");
   const [lastConfig,   setLastConfig]  = useState(null);
+  const [lastDealId,   setLastDealId]  = useState(null);
   const [triggerRegen, setTriggerRegen] = useState(false);
 
   useEffect(() => {
@@ -605,7 +606,7 @@ export default function App() {
     setDocType(type); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null);
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null);
     // auto-set pipeline based on doc type
     const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Reoccurring" : "";
     setFormData({ pipeline: defaultPipeline });
@@ -754,7 +755,9 @@ export default function App() {
         try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
       }
       const blob = await resp.blob();
-      const dlUrl = URL.createObjectURL(blob);
+      // Store as arrayBuffer immediately — we'll need it for HubSpot attachment before revoking
+      const docArrayBuffer = await blob.arrayBuffer();
+      const dlUrl = URL.createObjectURL(new Blob([docArrayBuffer], { type: blob.type }));
       const a = document.createElement("a");
       const client = (formData.clientShortName||formData.clientLegalName||formData.clientName||"Client").replace(/\s+/g,"_");
       const date   = new Date().toISOString().split("T")[0].replace(/-/g,"");
@@ -765,8 +768,11 @@ export default function App() {
       setGenerating(false);
       setGenerated(true);
 
-      // Fire HubSpot deal creation silently in background — never blocks download
+      // Fire HubSpot deal creation/update silently in background — never blocks download
       if (docType !== "assessment") {
+        const hsFilename = `${client}_${label}_${date}.docx`;
+        // Convert arrayBuffer to base64 for transmission
+        const docBase64 = btoa(Array.from(new Uint8Array(docArrayBuffer)).map(b => String.fromCharCode(b)).join(''));
         fetch("/api/hubspot", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -783,10 +789,15 @@ export default function App() {
             sgContactEmail:       formData.sgContactEmail,
             customerContactName:  formData.customerContactName,
             customerContactEmail: formData.customerContactEmail,
+            existingDealId:       lastDealId,
+            docBase64,
+            filename:             hsFilename,
           }),
         }).then(r => r.json()).then(data => {
-          if (data.dealId) console.log(`HubSpot deal created: ${data.dealName} (${data.dealId})`);
-          else console.warn('HubSpot: no deal ID returned', data);
+          if (data?.dealId) {
+            setLastDealId(data.dealId);
+            console.log(`HubSpot deal ${data.isNew ? 'created' : 'updated'}: ${data.dealName} (${data.dealId})`);
+          }
         }).catch(e => console.warn('HubSpot call failed (non-blocking):', e.message));
       }
     } catch(e) {
@@ -1022,17 +1033,45 @@ export default function App() {
                             if (configHeader) {
                               try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
                             }
-                            const blob = await resp.blob();
-                            const dlUrl = URL.createObjectURL(blob);
+                            const revBlob = await resp.blob();
+                            const revDocBuffer = await revBlob.arrayBuffer();
+                            const dlUrl = URL.createObjectURL(new Blob([revDocBuffer], { type: revBlob.type }));
                             const a = document.createElement("a");
                             const client = (updated.clientShortName||updated.clientLegalName||updated.clientName||"Client").replace(/\s+/g,"_");
                             const date = new Date().toISOString().split("T")[0].replace(/-/g,"");
                             const label = docType==="assessment"?"Assessment":docType==="proposal"?"Proposal":docType==="project"?"Project_Proposal":"Document";
-                            a.href=dlUrl; a.download=`${client}_${label}_${date}.docx`; a.click();
+                            const hsFilename = `${client}_${label}_${date}.docx`;
+                            a.href=dlUrl; a.download=hsFilename; a.click();
                             URL.revokeObjectURL(dlUrl);
                             setGenerating(false);
                             setGenerated(true);
-                            // Note: HubSpot deal already created on first generation — skip on revision
+                            // Update HubSpot deal with revised doc
+                            if (docType !== "assessment") {
+                              const revDocBase64 = btoa(Array.from(new Uint8Array(revDocBuffer)).map(b => String.fromCharCode(b)).join(''));
+                              fetch("/api/hubspot", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  docType,
+                                  clientName:           updated.clientLegalName || updated.clientName,
+                                  clientShortName:      updated.clientShortName,
+                                  projectTitle:         updated.projectTitle,
+                                  pipeline:             updated.pipeline,
+                                  dealAmount:           updated.dealAmount,
+                                  closeDate:            updated.closeDate,
+                                  closeProbability:     updated.closeProbability,
+                                  sgContactName:        updated.sgContactName,
+                                  sgContactEmail:       updated.sgContactEmail,
+                                  customerContactName:  updated.customerContactName,
+                                  customerContactEmail: updated.customerContactEmail,
+                                  existingDealId:       lastDealId,
+                                  docBase64:            revDocBase64,
+                                  filename:             hsFilename,
+                                }),
+                              }).then(r => r.json()).then(data => {
+                                if (data?.dealId) setLastDealId(data.dealId);
+                              }).catch(e => console.warn('HubSpot revision update failed:', e.message));
+                            }
                           }).catch(e => {
                             setGenerating(false);
                             setGenErr(`Revision failed: ${e.message}`);
