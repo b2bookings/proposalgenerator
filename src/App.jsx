@@ -585,9 +585,19 @@ export default function App() {
   const [generating,  setGenerating]  = useState(false);
   const [genStep,     setGenStep]     = useState(0);
   const [genErr,      setGenErr]      = useState("");
-  const [generated,   setGenerated]   = useState(false);
-  const [revisions,   setRevisions]   = useState("");
+  const [generated,    setGenerated]   = useState(false);
+  const [revisions,    setRevisions]   = useState("");
+  const [lastConfig,   setLastConfig]  = useState(null);
+  const [triggerRegen, setTriggerRegen] = useState(false);
+
+  useEffect(() => {
+    if (triggerRegen) {
+      setTriggerRegen(false);
+      handleGenerate();
+    }
+  }, [triggerRegen]);
   const fileRef = useRef();
+  const generateRef = useRef(null);
 
 
 
@@ -595,7 +605,7 @@ export default function App() {
     setDocType(type); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions("");
+    setGenerated(false); setRevisions(""); setLastConfig(null);
     // auto-set pipeline based on doc type
     const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Reoccurring" : "";
     setFormData({ pipeline: defaultPipeline });
@@ -704,15 +714,26 @@ export default function App() {
         }
       }
       setGenStep(1);
+      // On revision: pass the stored config and revision instructions directly
+      // On first generation: pass form data and file contents as usual
+      const isRevision = lastConfig && formData.additionalInstructions?.startsWith("REVISION REQUEST");
       const resp = await fetch("/api/generate-document", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ docType, formData, pastedText, fileContents }),
+        body: JSON.stringify(isRevision
+          ? { docType, formData, fileContents: [], previousConfig: lastConfig, revisionInstructions: formData.additionalInstructions }
+          : { docType, formData, pastedText, fileContents }
+        ),
       });
       setGenStep(2);
       if (!resp.ok) {
         const err = await resp.json().catch(()=>({}));
         throw new Error(err?.error || `Server error ${resp.status}`);
+      }
+      // Store the config that was used to generate this document
+      const configHeader = resp.headers.get('X-Document-Config');
+      if (configHeader) {
+        try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
       }
       const blob = await resp.blob();
       const dlUrl = URL.createObjectURL(blob);
@@ -921,24 +942,60 @@ export default function App() {
                   <button
                     className="btn-revise"
                     disabled={!revisions.trim() || generating}
-                    onClick={async () => {
-                      // Store revision text, clear box, re-run generate
-                      // Pass revisions as a separate field so it doesn't corrupt formData
-                      const revisionText = revisions;
+                    onClick={() => {
+                      const revisionText = revisions.trim();
                       setRevisions("");
                       setGenerated(false);
-                      // Add revision instructions to additionalInstructions but preserve includeSignature
-                      setFormData(prev => ({
-                        ...prev,
-                        // Preserve existing includeSignature exactly as-is
-                        includeSignature: prev.includeSignature || "",
-                        additionalInstructions:
-                          "REVISION REQUEST — make only these specific changes to the document, keep everything else identical: " +
-                          revisionText +
-                          (prev.additionalInstructions ? "\n\nOriginal instructions: " + prev.additionalInstructions : "")
-                      }));
-                      // Small delay to let state update before generating
-                      setTimeout(() => handleGenerate(), 150);
+                      // Update additionalInstructions with the revision request
+                      // then trigger generation — we use a functional update + immediate call
+                      // because handleGenerate reads formData via closure at call time
+                      setFormData(prev => {
+                        const updated = {
+                          ...prev,
+                          includeSignature: prev.includeSignature || "",
+                          additionalInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionText,
+                        };
+                        // Schedule generation after state commits
+                        setTimeout(() => {
+                          setGenerating(true);
+                          setGenStep(0);
+                          setGenErr("");
+                          fetch("/api/generate-document", {
+                            method:"POST",
+                            headers:{"Content-Type":"application/json"},
+                            body: JSON.stringify({
+                              docType,
+                              formData: updated,
+                              fileContents: [],
+                              previousConfig: lastConfig,
+                              revisionInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionText,
+                            }),
+                          }).then(async resp => {
+                            if (!resp.ok) {
+                              const err = await resp.json().catch(()=>({}));
+                              throw new Error(err?.error || `Server error ${resp.status}`);
+                            }
+                            const configHeader = resp.headers.get('X-Document-Config');
+                            if (configHeader) {
+                              try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
+                            }
+                            const blob = await resp.blob();
+                            const dlUrl = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            const client = (updated.clientShortName||updated.clientLegalName||updated.clientName||"Client").replace(/\s+/g,"_");
+                            const date = new Date().toISOString().split("T")[0].replace(/-/g,"");
+                            const label = docType==="assessment"?"Assessment":docType==="proposal"?"Proposal":docType==="project"?"Project_Proposal":"Document";
+                            a.href=dlUrl; a.download=`${client}_${label}_${date}.docx`; a.click();
+                            URL.revokeObjectURL(dlUrl);
+                            setGenerating(false);
+                            setGenerated(true);
+                          }).catch(e => {
+                            setGenerating(false);
+                            setGenErr(`Revision failed: ${e.message}`);
+                          });
+                        }, 0);
+                        return updated;
+                      });
                     }}
                   >
                     ↻ Regenerate with Changes
