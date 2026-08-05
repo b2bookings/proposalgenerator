@@ -921,11 +921,24 @@ export default function App() {
                   <button
                     className="btn-revise"
                     disabled={!revisions.trim() || generating}
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, additionalInstructions: (prev.additionalInstructions ? prev.additionalInstructions + "\n\nREVISION INSTRUCTIONS: " : "REVISION INSTRUCTIONS: ") + revisions }));
+                    onClick={async () => {
+                      // Store revision text, clear box, re-run generate
+                      // Pass revisions as a separate field so it doesn't corrupt formData
+                      const revisionText = revisions;
                       setRevisions("");
                       setGenerated(false);
-                      setTimeout(() => handleGenerate(), 100);
+                      // Add revision instructions to additionalInstructions but preserve includeSignature
+                      setFormData(prev => ({
+                        ...prev,
+                        // Preserve existing includeSignature exactly as-is
+                        includeSignature: prev.includeSignature || "",
+                        additionalInstructions:
+                          "REVISION REQUEST — make only these specific changes to the document, keep everything else identical: " +
+                          revisionText +
+                          (prev.additionalInstructions ? "\n\nOriginal instructions: " + prev.additionalInstructions : "")
+                      }));
+                      // Small delay to let state update before generating
+                      setTimeout(() => handleGenerate(), 150);
                     }}
                   >
                     ↻ Regenerate with Changes
