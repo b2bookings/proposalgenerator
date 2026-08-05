@@ -213,6 +213,15 @@ const styles = `
   .err-banner { background:#fff5f5; border:1px solid #fca5a5; border-radius:6px; padding:12px 16px; font-size:13px; color:#991b1b; margin-bottom:14px; display:flex; gap:9px; }
 
   .gen-bar { background:white; border:1px solid ${SG_BORDER_GRAY}; border-radius:6px; padding:20px 28px; display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:18px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .revision-box { background:white; border:1px solid ${SG_TEAL}; border-radius:6px; padding:22px 28px; margin-top:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .revision-box h4 { font-size:14px; font-weight:600; color:${SG_BLUE}; margin-bottom:4px; }
+  .revision-box p { font-size:12px; color:#7a8a9a; margin-bottom:12px; font-weight:300; }
+  .revision-box textarea { width:100%; border:1.5px solid #e2e8f0; border-radius:6px; padding:10px 12px; font-size:13px; font-family:'DM Sans',sans-serif; color:#333; resize:vertical; min-height:90px; outline:none; line-height:1.6; }
+  .revision-box textarea:focus { border-color:${SG_BLUE}; }
+  .revision-actions { display:flex; gap:10px; margin-top:10px; justify-content:flex-end; }
+  .btn-revise { background:${SG_TEAL}; color:white; border:none; border-radius:4px; padding:9px 20px; font-size:13px; font-weight:500; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; }
+  .btn-revise:hover:not(:disabled) { background:#3a9898; }
+  .btn-revise:disabled { opacity:0.5; cursor:not-allowed; }
   .gen-info { font-size:13px; color:#7a8a9a; font-weight:300; line-height:1.7; }
   .gen-info strong { color:#333333; font-weight:600; }
   .btn-gen { background:${SG_BLUE}; color:white; border:none; border-radius:4px; padding:12px 26px; font-size:14px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; display:flex; align-items:center; gap:7px; white-space:nowrap; letter-spacing:0.2px; }
@@ -259,11 +268,11 @@ const PIPELINE_FIELDS = [
     {value:"Project",label:"Project (one-time)"},
     {value:"Reoccurring",label:"Reoccurring (ongoing contract)"},
   ]},
-  { key:"dealAmount",           label:"Deal Amount",                       required:false, placeholder:"$150,000" },
-  { key:"closeDate",            label:"Expected Close Date",               required:false, type:"date" },
+  { key:"dealAmount",           label:"Deal Amount",                       required:true,  placeholder:"$150,000" },
+  { key:"closeDate",            label:"Expected Close Date",               required:true,  type:"date" },
   { key:"closeProbability",     label:"Probability of Closing (%)",        required:false, placeholder:"75", type:"number" },
-  { key:"sgContactName",        label:"Primary SG Contact Name",           required:false, placeholder:"Ted Winkelman" },
-  { key:"sgContactEmail",       label:"Primary SG Contact Email",          required:false, placeholder:"twinkelman@solutionmgt.com" },
+  { key:"sgContactName",        label:"Primary SG Contact Name",           required:true,  placeholder:"Ted Winkelman" },
+  { key:"sgContactEmail",       label:"Primary SG Contact Email",          required:true,  placeholder:"twinkelman@solutionmgt.com" },
   { key:"customerContactName",  label:"Primary Customer Contact Name",     required:false, placeholder:"John Doe" },
   { key:"customerContactEmail", label:"Primary Customer Contact Email",    required:false, placeholder:"jdoe@client.com" },
 ];
@@ -288,16 +297,12 @@ const PROPOSAL_FIELDS = [
   { key:"clientLegalName",    label:"Client Legal Name",           required:true,  placeholder:"Acme Corporation" },
   { key:"clientShortName",    label:"Client Short Name",           required:false, placeholder:"Acme" },
   { key:"facilityAddress",    label:"Facility Address",            required:false, placeholder:"123 Industrial Blvd, Indianapolis, IN 46201" },
-  { key:"serviceTier",        label:"Service Tier",                required:false, type:"select", options:[
-    {value:"",label:"Select tier…"},
-    {value:"Tier 1 – Monitoring",label:"Tier 1 – Monitoring (OptiClear)"},
-    {value:"Tier 2 – Single-Op O&M",label:"Tier 2 – Single-Operator O&M"},
-    {value:"Tier 3 – Full 24/7",label:"Tier 3 – Full 24/7 Staffing"},
-  ]},
   { key:"proposalDate",       label:"Proposal Date",               required:false, type:"date" },
   { key:"monthlyFeeTotal",    label:"Total Monthly Fee",           required:false, placeholder:"$12,500" },
+  { key:"timeline",           label:"Project Timeline (optional)", required:false, full:true, type:"textarea", placeholder:"Optional — paste or describe a timeline and it will be included as a table.\n\nExample: Weeks 1-4: Procurement | Weeks 5-6: Installation | Week 7: Commissioning" },
+  { key:"includeSignature",   label:"Include Signature Block?",    required:false, type:"select", options:[{value:"",label:"No signature block"},{value:"yes",label:"Yes — include signature block"}] },
   { key:"executiveSummary",   label:"Executive Summary",           required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or describe the service being proposed and the value to the client." },
-  { key:"inScope",            label:"In-Scope Services",           required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what SG will provide under this agreement." },
+  { key:"inScope",            label:"In-Scope Services",           required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what Solution Group will provide under this agreement." },
   { key:"additionalInstructions", label:"Any Additional Instructions", required:false, full:true, type:"textarea", placeholder:"Optional — guide Claude on tone, length, formality, or emphasis.\n\nExamples: \"Keep it concise and executive-friendly\", \"Use a more technical tone\", \"Emphasize regulatory compliance\"", help:"Adjust tone, length, formality, emphasis, or specific sections." },
 ];
 
@@ -308,11 +313,13 @@ const OTHER_FIELDS = [
 
 const PROJECT_PROPOSAL_FIELDS = [
   { key:"clientLegalName",    label:"Client Legal Name",     required:true,  placeholder:"Sabrosura Foods, LLC" },
-  { key:"clientShortName",    label:"Client Short Name",     required:true,  placeholder:"Sabrosura" },
-  { key:"projectTitle",       label:"Project Title",         required:true,  placeholder:"Automated Effluent Compliance Interlock" },
+  { key:"clientShortName",    label:"Client Short Name",     required:false, placeholder:"Sabrosura" },
+  { key:"projectTitle",       label:"Project Title",         required:true,  placeholder:"pH Adjust System Replacement" },
   { key:"proposalDate",       label:"Proposal Date",         required:false, type:"date" },
+  { key:"timeline",           label:"Project Timeline (optional)", required:false, full:true, type:"textarea", placeholder:"Optional — describe a timeline and it will be included as a table.\n\nExample: Weeks 1-4: Parts procurement | Weeks 5-6: Build and ship | Weeks 7-8: Install and startup" },
+  { key:"includeSignature",   label:"Include Signature Block?", required:false, type:"select", options:[{value:"",label:"No signature block"},{value:"yes",label:"Yes — include signature block"}] },
   { key:"executiveSummary",   label:"Executive Summary",     required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or describe the system and the value it delivers to the client." },
-  { key:"inScope",            label:"In-Scope Deliverables", required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what SG will supply, install, and deliver." },
+  { key:"inScope",            label:"In-Scope Deliverables", required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what Solution Group will supply, install, and deliver." },
   { key:"additionalInstructions", label:"Any Additional Instructions", required:false, full:true, type:"textarea",
     placeholder:"Optional — guide Claude on tone, length, formality, emphasis, or anything else.\n\nExamples: \"Keep it concise and executive-friendly\", \"Use a more technical tone\", \"Emphasize regulatory compliance throughout\"",
     help:"Adjust tone, length, formality, emphasis, or specific sections." },
@@ -488,7 +495,7 @@ async function callClaude(messageContent, maxTokens=8000, attempt=1) {
       method:"POST",
       signal: controller.signal,
       headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:maxTokens, messages:[{role:"user",content:messageContent}] }),
+      body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:maxTokens, messages:[{role:"user",content:messageContent}] }),
     });
     clearTimeout(tid);
     if (!resp.ok) {
@@ -578,6 +585,8 @@ export default function App() {
   const [generating,  setGenerating]  = useState(false);
   const [genStep,     setGenStep]     = useState(0);
   const [genErr,      setGenErr]      = useState("");
+  const [generated,   setGenerated]   = useState(false);
+  const [revisions,   setRevisions]   = useState("");
   const fileRef = useRef();
 
 
@@ -586,6 +595,7 @@ export default function App() {
     setDocType(type); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
+    setGenerated(false); setRevisions("");
     // auto-set pipeline based on doc type
     const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Reoccurring" : "";
     setFormData({ pipeline: defaultPipeline });
@@ -714,6 +724,7 @@ export default function App() {
       a.href=dlUrl; a.download=`${client}_${label}_${date}.docx`; a.click();
       URL.revokeObjectURL(dlUrl);
       setGenerating(false);
+      setGenerated(true);
     } catch(e) {
       setGenerating(false);
       setGenErr(`Generation failed: ${e.message}`);
@@ -895,6 +906,33 @@ export default function App() {
                 ⬇ Generate & Download
               </button>
             </div>
+
+            {/* REVISION BOX — shown after successful download */}
+            {generated && (
+              <div className="revision-box">
+                <h4>Need to make some changes?</h4>
+                <p>Describe the changes that need to be made — the more detail the better.</p>
+                <textarea
+                  placeholder="e.g. 'Shorten the engineering scope section', 'Add a note about permit timeline in assumptions', 'The total should be $380,000 not $411,000'..."
+                  value={revisions}
+                  onChange={e=>setRevisions(e.target.value)}
+                />
+                <div className="revision-actions">
+                  <button
+                    className="btn-revise"
+                    disabled={!revisions.trim() || generating}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, additionalInstructions: (prev.additionalInstructions ? prev.additionalInstructions + "\n\nREVISION INSTRUCTIONS: " : "REVISION INSTRUCTIONS: ") + revisions }));
+                      setRevisions("");
+                      setGenerated(false);
+                      setTimeout(() => handleGenerate(), 100);
+                    }}
+                  >
+                    ↻ Regenerate with Changes
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
