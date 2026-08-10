@@ -768,37 +768,63 @@ export default function App() {
       setGenerating(false);
       setGenerated(true);
 
-      // Fire HubSpot deal creation/update silently in background — never blocks download
+      // Fire HubSpot deal creation/update + attachment in background
       if (docType !== "assessment") {
         const hsFilename = `${client}_${label}_${date}.docx`;
-        // Convert arrayBuffer to base64 for transmission
-        const docBase64 = btoa(Array.from(new Uint8Array(docArrayBuffer)).map(b => String.fromCharCode(b)).join(''));
-        fetch("/api/hubspot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            docType,
-            clientName:           formData.clientLegalName || formData.clientName,
-            clientShortName:      formData.clientShortName,
-            projectTitle:         formData.projectTitle,
-            pipeline:             formData.pipeline,
-            dealAmount:           formData.dealAmount,
-            closeDate:            formData.closeDate,
-            closeProbability:     formData.closeProbability,
-            sgContactName:        formData.sgContactName,
-            sgContactEmail:       formData.sgContactEmail,
-            customerContactName:  formData.customerContactName,
-            customerContactEmail: formData.customerContactEmail,
-            existingDealId:       lastDealId,
-            docBase64,
-            filename:             hsFilename,
-          }),
-        }).then(r => r.json()).then(data => {
-          if (data?.dealId) {
+        const capturedBuffer = docArrayBuffer;
+
+        (async () => {
+          try {
+            // Step 1: Create/update deal
+            const dealResp = await fetch("/api/hubspot", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                docType,
+                clientName:           formData.clientLegalName || formData.clientName,
+                clientShortName:      formData.clientShortName,
+                projectTitle:         formData.projectTitle,
+                pipeline:             formData.pipeline,
+                dealAmount:           formData.dealAmount,
+                closeDate:            formData.closeDate,
+                closeProbability:     formData.closeProbability,
+                sgContactName:        formData.sgContactName,
+                sgContactEmail:       formData.sgContactEmail,
+                customerContactName:  formData.customerContactName,
+                customerContactEmail: formData.customerContactEmail,
+                existingDealId:       lastDealId,
+              }),
+            });
+            const data = await dealResp.json();
+            if (!data?.dealId) { console.warn('HubSpot: no dealId', data); return; }
+
             setLastDealId(data.dealId);
-            console.log(`HubSpot deal ${data.isNew ? 'created' : 'updated'}: ${data.dealName} (${data.dealId})`);
+            console.log(`✓ HubSpot deal ${data.isNew ? 'created' : 'updated'}: ${data.dealName} (${data.dealId})`);
+
+            // Step 2: Convert buffer and attach document
+            const uint8 = new Uint8Array(capturedBuffer);
+            let binary = '';
+            for (let i = 0; i < uint8.length; i += 8192) {
+              binary += String.fromCharCode(...uint8.subarray(i, i + 8192));
+            }
+            const docBase64 = btoa(binary);
+
+            const attachResp = await fetch("/api/hubspot", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                attachOnly: true,
+                existingDealId: data.dealId,
+                docBase64,
+                filename: hsFilename,
+              }),
+            });
+            const attachData = await attachResp.json();
+            console.log(`✓ HubSpot doc attached: fileId=${attachData.fileId || 'see logs'}`);
+          } catch(e) {
+            console.warn('HubSpot background call failed:', e.message);
           }
-        }).catch(e => console.warn('HubSpot call failed (non-blocking):', e.message));
+        })();
       }
     } catch(e) {
       setGenerating(false);
