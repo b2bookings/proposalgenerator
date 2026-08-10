@@ -41,6 +41,32 @@ const styles = `
   .home h1 { font-size: 44px; font-weight: 600; color: ${SG_BLUE}; line-height: 1.1; margin-bottom: 12px; letter-spacing: -0.5px; }
   .home > p { font-size: 15px; color: #5a6a80; max-width: 460px; margin: 0 auto 52px; line-height: 1.65; font-weight: 300; }
   .doc-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 860px; margin: 0 auto; }
+
+  /* INTAKE PAGE */
+  .intake-page { max-width: 720px; margin: 0 auto; padding: 60px 24px 80px; }
+  .intake-title { font-size: 32px; font-weight: 600; color: ${SG_BLUE}; margin-bottom: 8px; letter-spacing: -0.3px; text-align: center; }
+  .intake-sub { font-size: 15px; color: #7a8a9a; text-align: center; margin-bottom: 40px; font-weight: 300; line-height: 1.6; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .intake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  .intake-card { background: white; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 10px; padding: 28px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+  .intake-card h3 { font-size: 16px; font-weight: 600; color: #1a2332; }
+  .intake-card p { font-size: 12px; color: #9aa5b4; line-height: 1.55; font-weight: 300; }
+  .intake-upload-zone { border: 2px dashed #c8d4e8; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.18s; background: #fafbfc; width: 100%; }
+  .intake-upload-zone:hover, .intake-upload-zone.drag { border-color: ${SG_BLUE}; background: ${SG_LIGHT}; }
+  .intake-upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .intake-upload-zone h4 { font-size: 14px; font-weight: 500; color: #2d3748; margin-bottom: 3px; }
+  .intake-upload-zone p { font-size: 11px; color: #9aa5b4; }
+  .intake-paste { width: 100%; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 8px; padding: 14px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; resize: vertical; min-height: 140px; outline: none; line-height: 1.6; background: #fafbfc; }
+  .intake-paste:focus { border-color: ${SG_BLUE}; background: white; }
+  .intake-files { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+  .intake-file { display: flex; align-items: center; gap: 9px; background: ${SG_LIGHT}; border-radius: 4px; padding: 6px 11px; font-size: 13px; color: ${SG_BLUE}; }
+  .intake-file .fname { font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .intake-file button { background: none; border: none; color: #9aa5b4; cursor: pointer; font-size: 16px; line-height: 1; }
+  .intake-file button:hover { color: #e24b4a; }
+  .btn-parse-big { width: 100%; background: ${SG_BLUE}; color: white; border: none; border-radius: 8px; padding: 16px; font-size: 16px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.18s; margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn-parse-big:hover:not(:disabled) { background: #1e4380; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(43,87,154,0.22); }
+  .btn-parse-big:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .intake-or { text-align: center; font-size: 12px; color: #b0bbc8; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; margin: 4px 0; }
+  @media(max-width:640px){ .intake-grid { grid-template-columns: 1fr; } }
   .doc-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 28px 24px 24px; cursor: pointer; transition: all 0.18s; text-align: left; position: relative; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
   .doc-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:${SG_BLUE}; transform:scaleX(0); transition:transform 0.18s; }
   .doc-card:hover { border-color:${SG_BLUE}; transform:translateY(-2px); box-shadow:0 10px 36px rgba(43,87,154,0.14); }
@@ -876,11 +902,10 @@ export default function App() {
       {page==="home" && (
         <div className="home">
           <h1>Generate<br />a Document</h1>
-          <p>Build a branded assessment or proposal in minutes. Upload your notes, and Claude does the writing.</p>
-
-                    <div className="doc-cards">
+          <p>Build a branded assessment or proposal in minutes. Upload your files and let Claude do the writing.</p>
+          <div className="doc-cards">
             {DOC_TYPES.map(dt=>(
-              <div key={dt.id} className="doc-card" onClick={()=>selectDoc(dt.id)}>
+              <div key={dt.id} className="doc-card" onClick={()=>startIntake()}>
                 <div className="icon">{dt.icon}</div>
                 <h3>{dt.title}</h3>
                 <p>{dt.desc}</p>
@@ -891,87 +916,111 @@ export default function App() {
         </div>
       )}
 
+      {/* ── INTAKE ── */}
+      {page==="intake" && (
+        <div className="intake-page">
+          <div className="intake-title">Let's get started</div>
+          <div className="intake-sub">Upload your files and add any relevant context. Claude will read everything and pre-fill the proposal form for you.</div>
+
+          <div className="intake-grid">
+            {/* Upload card */}
+            <div className="intake-card">
+              <div style={{fontSize:32}}>📎</div>
+              <h3>Upload Files</h3>
+              <p>Proposals, project trackers, spreadsheets, PDFs, or any relevant documents</p>
+              <div
+                className={`intake-upload-zone${dragOver?" drag":""}`}
+                onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+                onDragLeave={()=>setDragOver(false)}
+                onDrop={e=>{e.preventDefault();setDragOver(false);addFiles(e.dataTransfer.files);}}
+                onClick={()=>fileRef.current?.click()}
+              >
+                <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.png,.jpg"
+                  onChange={e=>addFiles(e.target.files)} style={{display:"none"}} />
+                <div className="intake-upload-icon">⬆</div>
+                <h4>Drop files or click to upload</h4>
+                <p>PDF, DOCX, XLSX, CSV, images</p>
+              </div>
+              {files.length > 0 && (
+                <div className="intake-files" style={{width:"100%"}}>
+                  {files.map((f,i)=>(
+                    <div key={i} className="intake-file">
+                      📄 <span className="fname">{f.name}</span>
+                      <span style={{fontSize:11,color:"#9aa5b4"}}>{(f.size/1024).toFixed(0)}KB</span>
+                      <button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter((_,j)=>j!==i));}}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Paste card */}
+            <div className="intake-card">
+              <div style={{fontSize:32}}>📋</div>
+              <h3>Add Context</h3>
+              <p>Paste email threads, call notes, discovery summaries, or any text that provides background</p>
+              <textarea
+                className="intake-paste"
+                placeholder={"Paste anything here that would help — email threads, call notes, site visit observations, client requirements, copy-pasted text from another document..."}
+                value={pastedText}
+                onChange={e=>setPastedText(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {parseErr && <div className="err-banner" style={{marginBottom:12}}><span>⚠</span><span>{parseErr}</span></div>}
+
+          <button
+            className="btn-parse-big"
+            onClick={handleIntakeParse}
+            disabled={(!files.length && !pastedText.trim()) || parsing}
+          >
+            {parsing ? "⏳ Reading your files..." : "✦ Parse & Build Proposal Form"}
+          </button>
+          <div style={{textAlign:"center",marginTop:12,fontSize:12,color:"#b0bbc8"}}>
+            Claude will read your files, extract the relevant details, and open the proposal form pre-filled
+          </div>
+          <button className="form-back" style={{margin:"20px auto 0",display:"block"}} onClick={()=>setPage("home")}>← Back</button>
+        </div>
+      )}
+
       {/* ── FORM ── */}
       {page==="form" && (
         <div className="form-outer">
           <WaterBar pct={completePct} />
 
           <div className="form-main">
-            <button className="form-back" onClick={()=>setPage("home")}>← Back</button>
+            <button className="form-back" onClick={()=>setPage("intake")}>← Back</button>
             <div className="form-title">
-              {docType==="assessment"?"Assessment":docType==="proposal"?"Reoccurring Proposal":docType==="project"?"Project Proposal":"Custom Document"}
+              {docType==="assessment"?"Assessment":docType==="proposal"?"Reoccurring Proposal":docType==="project"?"Project Proposal":"Document"}
             </div>
             <div className="form-subtitle">
-              Upload files or paste notes first — Claude auto-fills the form. More detail = richer document.
+              {aiKeys.size > 0
+                ? `${aiKeys.size} fields pre-filled from your files — review, adjust, and generate.`
+                : "Fill in the details below and generate your document."}
             </div>
 
-            {/* CORS warning — show when running from file:// or localhost without a proxy */}
-            {(window.location.protocol === "file:" || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && (
-              <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:10,padding:"12px 16px",fontSize:13,color:"#92400e",marginBottom:16,lineHeight:1.6}}>
-                <strong>⚠ Running locally</strong> — the Anthropic API blocks direct browser calls from localhost due to CORS.
-                {" "}To test locally, set up a simple proxy (see README). To go live, deploy to{" "}
-                <a href="https://vercel.com" target="_blank" rel="noreferrer" style={{color:SG_BLUE}}>Vercel</a> or{" "}
-                <a href="https://netlify.com" target="_blank" rel="noreferrer" style={{color:SG_BLUE}}>Netlify</a> — CORS is resolved automatically on a real domain.
+            {/* Doc type selector — lets user correct if Claude guessed wrong */}
+            <div className="section" style={{padding:"16px 28px"}}>
+              <div className="section-title" style={{marginBottom:12}}>Document Type</div>
+              <div style={{display:"flex",gap:10}}>
+                {DOC_TYPES.map(dt=>(
+                  <button key={dt.id} onClick={()=>selectDoc(dt.id)} style={{
+                    flex:1, padding:"10px 8px", border:`2px solid ${docType===dt.id ? SG_BLUE : SG_BORDER_GRAY}`,
+                    borderRadius:6, background: docType===dt.id ? SG_BLUE : "white",
+                    color: docType===dt.id ? "white" : "#333", cursor:"pointer",
+                    fontSize:12, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
+                    transition:"all 0.15s"
+                  }}>
+                    {dt.icon} {dt.title}
+                  </button>
+                ))}
               </div>
-            )}
-
-            {genErr && <div className="err-banner"><span>⚠</span><span>{genErr}</span></div>}
-
-            {/* STEP 1 */}
-            <div className="section">
-              <div className="section-title">Step 1 — Upload Files or Paste Notes <span className="pill">Start here</span></div>
-              <div
-                className={`upload-outer${dragOver?" drag":""}`}
-                onDragOver={e=>{e.preventDefault();setDragOver(true);}}
-                onDragLeave={()=>setDragOver(false)}
-                onDrop={e=>{e.preventDefault();setDragOver(false);addFiles(e.dataTransfer.files);}}
-              >
-                <div className="upload-inner" onClick={()=>fileRef.current?.click()}>
-                  <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.xlsx,.txt,.png,.jpg"
-                    onChange={e=>addFiles(e.target.files)} style={{display:"none"}} accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.png,.jpg" />
-                  <div className="upload-icon-big">📎</div>
-                  <h4>Drop files here or click to upload</h4>
-                  <p>PDF, DOCX, XLSX, CSV, TXT, images · up to 5 files · Claude extracts all relevant data</p>
-                </div>
-                {files.length>0 && (
-                  <div className="uploaded-list">
-                    {files.map((f,i)=>(
-                      <div key={i} className="uploaded-file">
-                        📄 <span className="fname">{f.name}</span>
-                        <span className="fsize">{(f.size/1024).toFixed(0)} KB</span>
-                        <button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter((_,j)=>j!==i));setParsed(false);}}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="paste-box">
-                <div style={{fontSize:11,fontWeight:500,color:"#4a5568",marginBottom:5}}>Or paste notes, call summary, email thread…</div>
-                <textarea
-                  placeholder="Paste any context here — site visit notes, discovery call summary, email threads, intake form contents…"
-                  value={pastedText}
-                  onChange={e=>{setPastedText(e.target.value);setParsed(false);}}
-                />
-              </div>
-
-              <div className="parse-bar">
-                <button className="btn-parse" onClick={handleParse} disabled={(!files.length&&!pastedText.trim())||parsing}>
-                  {parsing?"⏳ Parsing…":"✦ Parse & Auto-Fill Form"}
-                </button>
-                {!parsed && !parseErr && <span className="parse-hint">Claude reads your files and fills the fields below</span>}
-                {parseErr && <span style={{fontSize:12,color:"#991b1b"}}>⚠ {parseErr}</span>}
-              </div>
-              {parsed && (
-                <div className="parsed-banner">
-                  ✓ {aiKeys.size} fields auto-filled — review below and correct anything that needs adjusting
-                </div>
-              )}
             </div>
 
-            {/* STEP 2 */}
+            {/* DEAL INFO */}
             <div className="section">
-              <div className="section-title">Step 2 — Deal Information</div>
+              <div className="section-title">Deal Information</div>
               <div className="field-grid">
                 {PIPELINE_FIELDS.slice(0,4).map(renderField)}
               </div>
@@ -980,10 +1029,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* STEP 3 */}
+            {/* DOC DETAILS */}
             <div className="section">
               <div className="section-title">
-                Step 3 — {docType==="assessment"?"Assessment Details":docType==="proposal"?"Proposal Details":docType==="project"?"Project Details":"Document Details"}
+                {docType==="assessment"?"Assessment Details":docType==="proposal"?"Proposal Details":docType==="project"?"Project Details":"Document Details"}
                 {parsed && aiKeys.size>0 && <span className="pill green">Auto-filled</span>}
               </div>
               <div className="field-grid">
