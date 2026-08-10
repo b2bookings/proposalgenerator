@@ -998,18 +998,16 @@ export default function App() {
                     disabled={!revisions.trim() || generating}
                     onClick={() => {
                       const revisionText = revisions.trim();
+                      const todayStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+                      const revisionWithDate = `Today's date is ${todayStr}. ${revisionText}`;
                       setRevisions("");
                       setGenerated(false);
-                      // Update additionalInstructions with the revision request
-                      // then trigger generation — we use a functional update + immediate call
-                      // because handleGenerate reads formData via closure at call time
                       setFormData(prev => {
                         const updated = {
                           ...prev,
                           includeSignature: prev.includeSignature || "",
-                          additionalInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionText,
+                          additionalInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionWithDate,
                         };
-                        // Schedule generation after state commits
                         setTimeout(() => {
                           setGenerating(true);
                           setGenStep(0);
@@ -1022,7 +1020,7 @@ export default function App() {
                               formData: updated,
                               fileContents: [],
                               previousConfig: lastConfig,
-                              revisionInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionText,
+                              revisionInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionWithDate,
                             }),
                           }).then(async resp => {
                             if (!resp.ok) {
