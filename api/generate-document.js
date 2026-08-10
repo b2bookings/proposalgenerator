@@ -476,6 +476,8 @@ FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:
 ${fileText}` : ''}
 
+Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}. Use this as the proposal date if none is specified.
+
 Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 {
   "proposal_title": "string — e.g. 'Industrial Wastewater Monitoring & Services'",
@@ -506,6 +508,8 @@ function assessmentConfigPrompt(formData, fileText) {
 
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:\n${fileText}` : ''}
+
+Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}. Use this as the proposal date if none is specified.
 
 Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 {
@@ -555,6 +559,10 @@ CRITICAL RULES:
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:
 ${fileText}` : ''}
+
+Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}. Use this as the proposal date if none is specified.
+
+Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}. Use this as the proposal date if none is specified.
 
 Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 {
@@ -609,6 +617,8 @@ module.exports = async function (req, res) {
       // ── REVISION MODE: edit the previous config surgically ──
       const revisionPrompt = `You are editing an existing Solution Group ${docType} proposal config. Make ONLY the specific changes requested. Return the complete updated JSON — every field must be present, unchanged fields must be copied exactly.
 
+Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}
+
 CURRENT CONFIG:
 ${JSON.stringify(previousConfig, null, 2)}
 
@@ -618,7 +628,8 @@ ${revisionInstructions}
 Rules:
 - Change ONLY what the revision instructions specify
 - Copy all other fields verbatim — do not rephrase, reorder, or improve anything else
-- Never add a signature block unless explicitly requested
+- If asked to add a signature block, set "include_signature": true
+- If asked to remove a signature block, set "include_signature": false
 - Never use em dashes
 - Return ONLY valid JSON, no markdown, no preamble`;
 
@@ -640,8 +651,11 @@ Rules:
       cfg = JSON.parse(jsonMatch[0]);
     }
 
-    // Always use formData for include_signature — never let Claude decide this
-    cfg.include_signature = formData.includeSignature === 'yes';
+    // On first generation: use formData for include_signature (form dropdown is authoritative)
+    // On revision: trust Claude's output (user may have asked to add/remove signature via revision)
+    if (!previousConfig) {
+      cfg.include_signature = formData.includeSignature === 'yes';
+    }
 
     // 3. Build the docx
     let doc;
