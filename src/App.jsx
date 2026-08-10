@@ -630,13 +630,113 @@ export default function App() {
 
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
+    setParsed(false); setParseErr(""); setGenErr("");
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null);
+    const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Reoccurring" : "";
+    setFormData(prev => ({ ...prev, pipeline: defaultPipeline }));
+    setPage("form");
+  };
+
+  const startIntake = () => {
+    setDocType(null); setFormData({}); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
     setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null);
-    // auto-set pipeline based on doc type
-    const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Reoccurring" : "";
-    setFormData({ pipeline: defaultPipeline });
-    setPage("form");
+    setPage("intake");
+  };
+
+  const handleIntakeParse = async () => {
+    if (!files.length && !pastedText.trim()) { setParseErr("Add a file or paste some context first."); return; }
+    setParseErr(""); setParsing(true); setParseStep(0);
+    try {
+      const msgContent = [];
+      for (const f of files) {
+        if (f.type === "application/pdf") {
+          const b64 = await readFileAsBase64(f);
+          msgContent.push({ type:"document", source:{type:"base64",media_type:"application/pdf",data:b64} });
+        } else if (f.type.startsWith("image/")) {
+          const b64 = await readFileAsBase64(f);
+          msgContent.push({ type:"image", source:{type:"base64",media_type:f.type,data:b64} });
+        } else if (f.name.endsWith(".docx") || f.type.includes("wordprocessingml")) {
+          const text = await readDocxAsText(f);
+          msgContent.push({ type:"text", text:"[Document: " + f.name + "]\n" + text });
+        } else if (f.name.endsWith(".csv") || f.type==="text/csv" || f.type==="text/plain") {
+          const text = await f.text();
+          msgContent.push({ type:"text", text:"[File: " + f.name + "]\n" + text });
+        }
+      }
+      setParseStep(1);
+
+      const allKeys = [
+        ...PIPELINE_FIELDS,
+        ...ASSESSMENT_FIELDS,
+        ...PROPOSAL_FIELDS,
+        ...PROJECT_PROPOSAL_FIELDS,
+      ].map(f => f.key).filter((k,i,a) => a.indexOf(k) === i); // dedupe
+
+      const prompt = `You are a data extraction assistant for Solution Group. Extract fields from the provided files/text and determine what type of document this is.
+
+${pastedText ? "PASTED TEXT:\n" + pastedText + "\n" : ""}
+${files.length ? "Files: " + files.map(f=>f.name).join(", ") : ""}
+
+CRITICAL: Return ONLY a flat JSON object. Every value must be a plain string or number. No nested objects, no arrays, no null. Use empty string for not found.
+
+Include "suggestedDocType" — one of: "assessment", "proposal", "project"
+- "project" = capital project, equipment installation, one-time CapEx
+- "proposal" = recurring O&M service contract, monthly fee
+- "assessment" = site assessment, findings report, no pricing
+
+Extract values for these keys: ${JSON.stringify([...allKeys, "suggestedDocType"])}
+
+FIELD MAPPING:
+- "sgContactName": default "Ted Winkelman" if not found
+- "sgContactEmail": default "twinkelman@solutionmgt.com" if not found
+- "dealAmount": any total dollar figure — most important field
+- "closeDate"/"proposalDate": any document date, format YYYY-MM-DD
+- "clientLegalName"/"clientShortName": client/customer name
+- "projectTitle": main project heading
+- "executiveSummary": executive summary text (max 500 chars)
+- "inScope": in-scope items as newline-separated string`;
+
+      msgContent.push({ type:"text", text: prompt });
+      const raw = await callClaude(msgContent, 2500);
+
+      let extracted = {};
+      try {
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("no json");
+        extracted = JSON.parse(jsonMatch[0]);
+      } catch(e) {
+        const cleaned = raw.replace(/```json|```/g,'').trim();
+        const m2 = cleaned.match(/\{[\s\S]*\}/);
+        if (m2) extracted = JSON.parse(m2[0]);
+        else throw new Error("Could not parse response — try again.");
+      }
+
+      setParseStep(2);
+      const filled = new Set();
+      const merged = {};
+      Object.entries(extracted).forEach(([k,v]) => {
+        if (v && String(v).trim() && k !== "suggestedDocType") {
+          merged[k] = String(v).trim();
+          filled.add(k);
+        }
+      });
+
+      const suggested = extracted.suggestedDocType || "project";
+      const defaultPipeline = suggested === "project" ? "Project" : suggested === "proposal" ? "Reoccurring" : "";
+      merged.pipeline = merged.pipeline || defaultPipeline;
+
+      setFormData(merged);
+      setAiKeys(filled);
+      setDocType(suggested);
+      setParsed(true);
+      setPage("form");
+    } catch(e) {
+      setParseErr("Parse failed: " + e.message);
+    } finally {
+      setParsing(false);
+    }
   };
 
   const setField = (key,val) => {
