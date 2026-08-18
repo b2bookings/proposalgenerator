@@ -8,8 +8,8 @@ const https = require('https');
 const HUBSPOT_TOKEN = process.env.HUBSPOT_API_KEY;
 
 const PIPELINES = {
-  Project:     { pipelineId: '2277462760', stageId: '3670652607' },
-  Reoccurring: { pipelineId: '2276783856', stageId: '3669908170' },
+  Project:   { pipelineId: '2277462760', stageId: '3670652607' },
+  Recurring: { pipelineId: '2276783856', stageId: '3669908170' },
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -106,7 +106,9 @@ async function uploadAndAttachFile(dealId, docBase64, filename) {
     const fileBuffer = Buffer.from(docBase64, 'base64');
     const boundary = `----Boundary${Date.now()}`;
     const nl = '\r\n';
-    const meta = JSON.stringify({ access: 'PRIVATE', folderPath: '/proposal-generator' });
+
+    // Upload to HubSpot Files — PUBLIC_NOT_INDEXABLE so it can be linked from deal
+    const meta = JSON.stringify({ access: 'PUBLIC_NOT_INDEXABLE', folderPath: '/proposal-generator', overwrite: false });
     const metaPart = `--${boundary}${nl}Content-Disposition: form-data; name="options"${nl}Content-Type: application/json${nl}${nl}${meta}${nl}`;
     const fileHead = `--${boundary}${nl}Content-Disposition: form-data; name="file"; filename="${filename}"${nl}Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document${nl}${nl}`;
     const closing  = `${nl}--${boundary}--${nl}`;
@@ -115,7 +117,11 @@ async function uploadAndAttachFile(dealId, docBase64, filename) {
     const uploaded = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'api.hubapi.com', path: '/files/v3/files', method: 'POST',
-        headers: { 'Authorization': `Bearer ${HUBSPOT_TOKEN}`, 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length },
+        headers: {
+          'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': body.length,
+        },
       };
       const req = https.request(options, res => {
         let data = '';
@@ -133,21 +139,31 @@ async function uploadAndAttachFile(dealId, docBase64, filename) {
       req.end();
     });
 
-    // Attach to deal via note
-    await hubspotRequest('POST', '/crm/v3/objects/notes', {
-      properties: {
-        hs_note_body: `Proposal document: ${filename} (HubSpot File ID: ${uploaded.id})`,
-        hs_timestamp: new Date().toISOString(),
+    console.log('File uploaded to HubSpot:', uploaded.id, uploaded.url);
+
+    // Attach to deal via Engagements API (shows as attachment on deal record)
+    await hubspotRequest('POST', '/engagements/v1/engagements', {
+      engagement: {
+        active: true,
+        type: 'NOTE',
+        timestamp: Date.now(),
       },
-      associations: [{
-        to: { id: String(dealId) },
-        types: [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 214 }],
-      }],
+      associations: {
+        dealIds: [Number(dealId)],
+        contactIds: [],
+        companyIds: [],
+        ownerIds: [],
+      },
+      metadata: {
+        body: `<p><strong>Generated Proposal Document</strong></p><p><a href="${uploaded.url}">${filename}</a></p>`,
+      },
+      attachments: [{ id: Number(uploaded.id) }],
     });
 
+    console.log('File attached to deal:', dealId);
     return uploaded.id;
   } catch(e) {
-    console.warn('File upload/attach failed (non-blocking):', e.message);
+    console.warn('File upload/attach failed:', e.message);
     return null;
   }
 }
@@ -174,6 +190,8 @@ module.exports = async function (req, res) {
       pipeline, dealAmount, closeDate, closeProbability,
       sgContactName, sgContactEmail, customerContactName, customerContactEmail,
       existingDealId, docBase64, filename, attachOnly,
+      managementCost, equipmentCost, laborCost, technologyCost,
+      projectLengthDays, contractLengthDays,
     } = body;
 
     // ── ATTACH ONLY MODE ──
@@ -184,19 +202,37 @@ module.exports = async function (req, res) {
       return;
     }
 
-    // ── CREATE / UPDATE DEAL ──
-    const pipelineConfig = PIPELINES[pipeline] || PIPELINES['Reoccurring'];
+    // ── Correct pipeline routing ──
+    const pipelineConfig = pipeline === 'Project' ? PIPELINES['Project'] : PIPELINES['Recurring'];
     const effectiveClientName = clientName || clientShortName || 'Unknown Client';
     const dealName = buildDealName(effectiveClientName, docType, projectTitle);
+
+    const parseCost = v => v ? parseFloat(String(v).replace(/[$,]/g, '')) || undefined : undefined;
     const amountNum = dealAmount ? parseFloat(String(dealAmount).replace(/[$,]/g, '')) || undefined : undefined;
+
+    const addDays = (dateStr, days) => {
+      if (!dateStr || !days) return undefined;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return undefined;
+      d.setDate(d.getDate() + Number(days));
+      return String(d.getTime());
+    };
 
     const dealProps = {
       dealname:  dealName,
       pipeline:  pipelineConfig.pipelineId,
       dealstage: pipelineConfig.stageId,
-      ...(amountNum        ? { amount: String(amountNum) } : {}),
-      ...(closeDate        ? { closedate: String(new Date(closeDate).getTime()) } : {}),
+      ...(amountNum        ? { amount: String(amountNum) }                         : {}),
+      ...(closeDate        ? { closedate: String(new Date(closeDate).getTime()) }  : {}),
       ...(closeProbability ? { hs_deal_stage_probability: String(Number(closeProbability) / 100) } : {}),
+      ...(parseCost(managementCost) ? { management_cost: String(parseCost(managementCost)) }  : {}),
+      ...(parseCost(equipmentCost)  ? { equipment_cost:  String(parseCost(equipmentCost))  }  : {}),
+      ...(parseCost(laborCost)      ? { labor_cost:      String(parseCost(laborCost))      }  : {}),
+      ...(parseCost(technologyCost) ? { technology_cost: String(parseCost(technologyCost)) }  : {}),
+      ...(pipeline === 'Project' && projectLengthDays && closeDate
+        ? { estimated_project_end_date: addDays(closeDate, projectLengthDays) } : {}),
+      ...(pipeline === 'Recurring' && contractLengthDays && closeDate
+        ? { estimated_contract_end_date: addDays(closeDate, contractLengthDays) } : {}),
     };
 
     let dealId;
