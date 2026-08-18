@@ -236,7 +236,7 @@ const styles = `
   .field input.ai-filled, .field select.ai-filled, .field textarea.ai-filled { border-color:${SG_TEAL}; background:#f0fdf9; }
   .field textarea { resize:vertical; min-height:82px; line-height:1.5; }
 
-  .err-banner { background:#fff5f5; border:1px solid #fca5a5; border-radius:6px; padding:12px 16px; font-size:13px; color:#991b1b; margin-bottom:14px; display:flex; gap:9px; }
+  .err-banner { background:#fff5f5; border:2px solid #e24b4a; border-radius:6px; padding:14px 18px; font-size:13px; color:#991b1b; margin-bottom:14px; display:flex; gap:9px; white-space:pre-line; line-height:1.6; }
 
   .gen-bar { background:white; border:1px solid ${SG_BORDER_GRAY}; border-radius:6px; padding:20px 28px; display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:18px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
   .revision-box { background:white; border:1px solid ${SG_TEAL}; border-radius:6px; padding:22px 28px; margin-top:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
@@ -868,11 +868,21 @@ FIELD MAPPING:
     const errs={};
     allFields.filter(f=>f.required).forEach(f=>{ if(!formData[f.key]?.toString().trim()) errs[f.key]=true; });
     setErrors(errs);
-    return Object.keys(errs).length===0;
+    if (Object.keys(errs).length > 0) {
+      // Build a helpful message listing exactly which fields are missing
+      const missingLabels = allFields
+        .filter(f => f.required && errs[f.key])
+        .map(f => f.label);
+      const msg = missingLabels.length === 1
+        ? `Please fill in the required field: ${missingLabels[0]}`
+        : `Please fill in all required fields before generating:\n• ${missingLabels.join('\n• ')}`;
+      setGenErr(msg);
+      // Scroll to the top of the form so user sees the error
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return false;
+    }
+    return true;
   };
-
-  const handleGenerate = async () => {
-    if (!validate()) { setGenErr("Please fill in all required fields."); return; }
     setGenErr(""); setGenerating(true); setGenStep(0);
     try {
       const content = [];
