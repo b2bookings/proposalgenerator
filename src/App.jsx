@@ -921,9 +921,7 @@ FIELD MAPPING:
         try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
       }
       const blob = await resp.blob();
-      // Store as arrayBuffer immediately — we'll need it for HubSpot attachment before revoking
-      const docArrayBuffer = await blob.arrayBuffer();
-      const dlUrl = URL.createObjectURL(new Blob([docArrayBuffer], { type: blob.type }));
+      const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const client = (formData.clientShortName||formData.clientLegalName||formData.clientName||"Client").replace(/\s+/g,"_");
       const date   = new Date().toISOString().split("T")[0].replace(/-/g,"");
@@ -934,69 +932,40 @@ FIELD MAPPING:
       setGenerating(false);
       setGenerated(true);
 
-      // Fire HubSpot deal creation/update + attachment in background
+      // Fire HubSpot deal creation/update silently in background
       if (docType !== "assessment") {
-        const hsFilename = `${client}_${label}_${date}.docx`;
-        const capturedBuffer = docArrayBuffer;
-
-        (async () => {
-          try {
-            // Step 1: Create/update deal
-            const dealResp = await fetch("/api/hubspot", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                docType,
-                clientName:           formData.clientLegalName || formData.clientName,
-                clientShortName:      formData.clientShortName,
-                projectTitle:         formData.projectTitle,
-                pipeline:             formData.pipeline,
-                dealAmount:           formData.dealAmount,
-                closeDate:            formData.closeDate,
-                closeProbability:     formData.closeProbability,
-                sgContactName:        formData.sgContactName,
-                sgContactEmail:       formData.sgContactEmail,
-                customerContactName:  formData.customerContactName,
-                customerContactEmail: formData.customerContactEmail,
-                managementCost:       formData.managementCost,
-                equipmentCost:        formData.equipmentCost,
-                laborCost:            formData.laborCost,
-                technologyCost:       formData.technologyCost,
-                projectLengthDays:    formData.projectLengthDays,
-                contractLengthDays:   formData.contractLengthDays,
-                existingDealId:       lastDealId,
-              }),
-            });
-            const data = await dealResp.json();
-            if (!data?.dealId) { console.warn('HubSpot: no dealId', data); return; }
-
+        fetch("/api/hubspot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            docType,
+            clientName:           formData.clientLegalName || formData.clientName,
+            clientShortName:      formData.clientShortName,
+            projectTitle:         formData.projectTitle,
+            pipeline:             formData.pipeline,
+            dealAmount:           formData.dealAmount,
+            closeDate:            formData.closeDate,
+            closeProbability:     formData.closeProbability,
+            sgContactName:        formData.sgContactName,
+            sgContactEmail:       formData.sgContactEmail,
+            customerContactName:  formData.customerContactName,
+            customerContactEmail: formData.customerContactEmail,
+            managementCost:       formData.managementCost,
+            equipmentCost:        formData.equipmentCost,
+            laborCost:            formData.laborCost,
+            technologyCost:       formData.technologyCost,
+            projectLengthDays:    formData.projectLengthDays,
+            contractLengthDays:   formData.contractLengthDays,
+            existingDealId:       lastDealId,
+          }),
+        }).then(r => r.json()).then(data => {
+          if (data?.dealId) {
             setLastDealId(data.dealId);
             console.log(`✓ HubSpot deal ${data.isNew ? 'created' : 'updated'}: ${data.dealName} (${data.dealId})`);
-
-            // Step 2: Convert buffer and attach document
-            const uint8 = new Uint8Array(capturedBuffer);
-            let binary = '';
-            for (let i = 0; i < uint8.length; i += 8192) {
-              binary += String.fromCharCode(...uint8.subarray(i, i + 8192));
-            }
-            const docBase64 = btoa(binary);
-
-            const attachResp = await fetch("/api/hubspot", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                attachOnly: true,
-                existingDealId: data.dealId,
-                docBase64,
-                filename: hsFilename,
-              }),
-            });
-            const attachData = await attachResp.json();
-            console.log(`✓ HubSpot doc attached: fileId=${attachData.fileId || 'see logs'}`);
-          } catch(e) {
-            console.warn('HubSpot background call failed:', e.message);
+          } else {
+            console.warn('HubSpot: no dealId', data);
           }
-        })();
+        }).catch(e => console.warn('HubSpot call failed:', e.message));
       }
     } catch(e) {
       setGenerating(false);
@@ -1269,20 +1238,17 @@ FIELD MAPPING:
                               try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
                             }
                             const revBlob = await resp.blob();
-                            const revDocBuffer = await revBlob.arrayBuffer();
-                            const dlUrl = URL.createObjectURL(new Blob([revDocBuffer], { type: revBlob.type }));
+                            const dlUrl = URL.createObjectURL(revBlob);
                             const a = document.createElement("a");
                             const client = (updated.clientShortName||updated.clientLegalName||updated.clientName||"Client").replace(/\s+/g,"_");
                             const date = new Date().toISOString().split("T")[0].replace(/-/g,"");
                             const label = docType==="assessment"?"Assessment":docType==="proposal"?"Proposal":docType==="project"?"Project_Proposal":"Document";
-                            const hsFilename = `${client}_${label}_${date}.docx`;
-                            a.href=dlUrl; a.download=hsFilename; a.click();
+                            a.href=dlUrl; a.download=`${client}_${label}_${date}.docx`; a.click();
                             URL.revokeObjectURL(dlUrl);
                             setGenerating(false);
                             setGenerated(true);
-                            // Update HubSpot deal with revised doc
+                            // Update HubSpot deal on revision
                             if (docType !== "assessment") {
-                              const revDocBase64 = btoa(Array.from(new Uint8Array(revDocBuffer)).map(b => String.fromCharCode(b)).join(''));
                               fetch("/api/hubspot", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -1306,8 +1272,6 @@ FIELD MAPPING:
                                   projectLengthDays:    updated.projectLengthDays,
                                   contractLengthDays:   updated.contractLengthDays,
                                   existingDealId:       lastDealId,
-                                  docBase64:            revDocBase64,
-                                  filename:             hsFilename,
                                 }),
                               }).then(r => r.json()).then(data => {
                                 if (data?.dealId) setLastDealId(data.dealId);
