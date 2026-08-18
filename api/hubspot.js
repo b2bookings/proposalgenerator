@@ -1,6 +1,7 @@
 /**
  * SG Document Generator — HubSpot Integration
  * Route: POST /api/hubspot
+ * Creates or updates deals. File attachment removed.
  */
 
 const https = require('https');
@@ -12,9 +13,8 @@ const PIPELINES = {
   Recurring: { pipelineId: '2276783856', stageId: '3669908170' },
 };
 
-// ── Config ────────────────────────────────────────────────────────────────────
 module.exports.config = {
-  api: { bodyParser: { sizeLimit: '10mb' } }
+  api: { bodyParser: { sizeLimit: '2mb' } }
 };
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ async function findOrCreateContact(email, firstName, lastName) {
       limit: 1,
     });
     if (search.results?.length > 0) return search.results[0].id;
-  } catch(e) { console.log('Contact search failed, will try create:', e.message); }
+  } catch(e) { console.log('Contact search failed, trying create:', e.message); }
 
   try {
     const contact = await hubspotRequest('POST', '/crm/v3/objects/contacts', {
@@ -99,75 +99,6 @@ function buildDealName(clientName, docType, projectTitle) {
   return `${clientName} - ${docType === 'project' ? 'Capital Project' : 'O&M Services'}`;
 }
 
-// ── File upload ───────────────────────────────────────────────────────────────
-async function uploadAndAttachFile(dealId, docBase64, filename) {
-  if (!docBase64 || !dealId) return null;
-  try {
-    const fileBuffer = Buffer.from(docBase64, 'base64');
-    const boundary = `----Boundary${Date.now()}`;
-    const nl = '\r\n';
-
-    // Upload to HubSpot Files — PUBLIC_NOT_INDEXABLE so it can be linked from deal
-    const meta = JSON.stringify({ access: 'PUBLIC_NOT_INDEXABLE', folderPath: '/proposal-generator', overwrite: false });
-    const metaPart = `--${boundary}${nl}Content-Disposition: form-data; name="options"${nl}Content-Type: application/json${nl}${nl}${meta}${nl}`;
-    const fileHead = `--${boundary}${nl}Content-Disposition: form-data; name="file"; filename="${filename}"${nl}Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document${nl}${nl}`;
-    const closing  = `${nl}--${boundary}--${nl}`;
-    const body = Buffer.concat([Buffer.from(metaPart), Buffer.from(fileHead), fileBuffer, Buffer.from(closing)]);
-
-    const uploaded = await new Promise((resolve, reject) => {
-      const options = {
-        hostname: 'api.hubapi.com', path: '/files/v3/files', method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${HUBSPOT_TOKEN}`,
-          'Content-Type': `multipart/form-data; boundary=${boundary}`,
-          'Content-Length': body.length,
-        },
-      };
-      const req = https.request(options, res => {
-        let data = '';
-        res.on('data', c => data += c);
-        res.on('end', () => {
-          try {
-            const p = JSON.parse(data);
-            if (res.statusCode >= 400) reject(new Error(`Upload ${res.statusCode}: ${p.message || data}`));
-            else resolve(p);
-          } catch(e) { reject(new Error(`Upload parse: ${data.slice(0, 200)}`)); }
-        });
-      });
-      req.on('error', reject);
-      req.write(body);
-      req.end();
-    });
-
-    console.log('File uploaded to HubSpot:', uploaded.id, uploaded.url);
-
-    // Attach to deal via Engagements API (shows as attachment on deal record)
-    await hubspotRequest('POST', '/engagements/v1/engagements', {
-      engagement: {
-        active: true,
-        type: 'NOTE',
-        timestamp: Date.now(),
-      },
-      associations: {
-        dealIds: [Number(dealId)],
-        contactIds: [],
-        companyIds: [],
-        ownerIds: [],
-      },
-      metadata: {
-        body: `<p><strong>Generated Proposal Document</strong></p><p><a href="${uploaded.url}">${filename}</a></p>`,
-      },
-      attachments: [{ id: Number(uploaded.id) }],
-    });
-
-    console.log('File attached to deal:', dealId);
-    return uploaded.id;
-  } catch(e) {
-    console.warn('File upload/attach failed:', e.message);
-    return null;
-  }
-}
-
 // ── Main handler ──────────────────────────────────────────────────────────────
 module.exports = async function (req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -183,26 +114,17 @@ module.exports = async function (req, res) {
 
   try {
     const body = req.body;
-    console.log('HubSpot request received, docType:', body.docType, 'attachOnly:', body.attachOnly, 'existingDealId:', body.existingDealId);
+    console.log('HubSpot request — docType:', body.docType, 'pipeline:', body.pipeline, 'existingDealId:', body.existingDealId);
 
     const {
       docType, clientName, clientShortName, projectTitle,
       pipeline, dealAmount, closeDate, closeProbability,
       sgContactName, sgContactEmail, customerContactName, customerContactEmail,
-      existingDealId, docBase64, filename, attachOnly,
+      existingDealId,
       managementCost, equipmentCost, laborCost, technologyCost,
       projectLengthDays, contractLengthDays,
     } = body;
 
-    // ── ATTACH ONLY MODE ──
-    if (attachOnly && existingDealId) {
-      console.log('Attach-only mode for deal:', existingDealId);
-      const fileId = await uploadAndAttachFile(existingDealId, docBase64, filename);
-      res.status(200).json({ success: true, fileId });
-      return;
-    }
-
-    // ── Correct pipeline routing ──
     const pipelineConfig = pipeline === 'Project' ? PIPELINES['Project'] : PIPELINES['Recurring'];
     const effectiveClientName = clientName || clientShortName || 'Unknown Client';
     const dealName = buildDealName(effectiveClientName, docType, projectTitle);
@@ -222,13 +144,13 @@ module.exports = async function (req, res) {
       dealname:  dealName,
       pipeline:  pipelineConfig.pipelineId,
       dealstage: pipelineConfig.stageId,
-      ...(amountNum        ? { amount: String(amountNum) }                         : {}),
-      ...(closeDate        ? { closedate: String(new Date(closeDate).getTime()) }  : {}),
+      ...(amountNum        ? { amount: String(amountNum) }                        : {}),
+      ...(closeDate        ? { closedate: String(new Date(closeDate).getTime()) } : {}),
       ...(closeProbability ? { hs_deal_stage_probability: String(Number(closeProbability) / 100) } : {}),
-      ...(parseCost(managementCost) ? { management_cost: String(parseCost(managementCost)) }  : {}),
-      ...(parseCost(equipmentCost)  ? { equipment_cost:  String(parseCost(equipmentCost))  }  : {}),
-      ...(parseCost(laborCost)      ? { labor_cost:      String(parseCost(laborCost))      }  : {}),
-      ...(parseCost(technologyCost) ? { technology_cost: String(parseCost(technologyCost)) }  : {}),
+      ...(parseCost(managementCost) ? { management_cost: String(parseCost(managementCost)) } : {}),
+      ...(parseCost(equipmentCost)  ? { equipment_cost:  String(parseCost(equipmentCost))  } : {}),
+      ...(parseCost(laborCost)      ? { labor_cost:      String(parseCost(laborCost))      } : {}),
+      ...(parseCost(technologyCost) ? { technology_cost: String(parseCost(technologyCost)) } : {}),
       ...(pipeline === 'Project' && projectLengthDays && closeDate
         ? { estimated_project_end_date: addDays(closeDate, projectLengthDays) } : {}),
       ...(pipeline === 'Recurring' && contractLengthDays && closeDate
@@ -256,10 +178,17 @@ module.exports = async function (req, res) {
 
       // Associate contact
       const nameParts = (customerContactName || '').trim().split(/\s+/);
-      const contactId = await findOrCreateContact(customerContactEmail, nameParts[0] || '', nameParts.slice(1).join(' ') || '');
+      const contactId = await findOrCreateContact(
+        customerContactEmail,
+        nameParts[0] || '',
+        nameParts.slice(1).join(' ') || ''
+      );
       if (contactId && dealId) {
         try {
-          await hubspotRequest('PUT', `/crm/v3/objects/deals/${dealId}/associations/contacts/${contactId}/deal_to_contact`, {});
+          await hubspotRequest('PUT',
+            `/crm/v3/objects/deals/${dealId}/associations/contacts/${contactId}/deal_to_contact`,
+            {}
+          );
           console.log('Contact associated:', contactId);
         } catch(e) { console.warn('Contact association failed:', e.message); }
       }
@@ -268,7 +197,7 @@ module.exports = async function (req, res) {
     res.status(200).json({ success: true, dealId, dealName, isNew });
 
   } catch(err) {
-    console.error('HubSpot error:', err.message, err.stack);
+    console.error('HubSpot error:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
