@@ -292,15 +292,20 @@ const PIPELINE_FIELDS = [
   { key:"pipeline", label:"Pipeline", required:true, type:"select", options:[
     {value:"",label:"Select pipeline…"},
     {value:"Project",label:"Project (one-time)"},
-    {value:"Reoccurring",label:"Reoccurring (ongoing contract)"},
+    {value:"Recurring",label:"Recurring (ongoing contract)"},
   ]},
-  { key:"dealAmount",           label:"Deal Amount",                       required:true,  placeholder:"$150,000" },
-  { key:"closeDate",            label:"Expected Close Date",               required:true,  type:"date" },
-  { key:"closeProbability",     label:"Probability of Closing (%)",        required:false, placeholder:"75", type:"number" },
-  { key:"sgContactName",        label:"Primary SG Contact Name",           required:true,  placeholder:"Ted Winkelman" },
-  { key:"sgContactEmail",       label:"Primary SG Contact Email",          required:true,  placeholder:"twinkelman@solutionmgt.com" },
-  { key:"customerContactName",  label:"Primary Customer Contact Name",     required:false, placeholder:"John Doe" },
-  { key:"customerContactEmail", label:"Primary Customer Contact Email",    required:false, placeholder:"jdoe@client.com" },
+  { key:"dealAmount",           label:"Deal Amount",                    required:true,  placeholder:"$150,000" },
+  { key:"closeDate",            label:"Expected Close Date",            required:true,  type:"date" },
+  { key:"closeProbability",     label:"Probability of Closing (%)",     required:false, placeholder:"75", type:"number" },
+  { key:"sgContactName",        label:"Primary SG Contact Name",        required:true,  placeholder:"Ted Winkelman" },
+  { key:"sgContactEmail",       label:"Primary SG Contact Email",       required:true,  placeholder:"twinkelman@solutionmgt.com" },
+  { key:"customerContactName",  label:"Primary Customer Contact Name",  required:true,  placeholder:"John Doe" },
+  { key:"customerContactEmail", label:"Primary Customer Contact Email", required:true,  placeholder:"jdoe@client.com" },
+  // Cost breakdown fields — parsed from uploaded docs, pushed to HubSpot
+  { key:"managementCost",  label:"Management Cost",  required:false, placeholder:"$0" },
+  { key:"equipmentCost",   label:"Equipment Cost",   required:false, placeholder:"$0" },
+  { key:"laborCost",       label:"Labor Cost",        required:false, placeholder:"$0" },
+  { key:"technologyCost",  label:"Technology Cost",   required:false, placeholder:"$0" },
 ];
 
 const ASSESSMENT_FIELDS = [
@@ -320,15 +325,16 @@ const ASSESSMENT_FIELDS = [
 ];
 
 const PROPOSAL_FIELDS = [
-  { key:"clientLegalName",    label:"Client Legal Name",           required:true,  placeholder:"Acme Corporation" },
-  { key:"clientShortName",    label:"Client Short Name",           required:false, placeholder:"Acme" },
-  { key:"facilityAddress",    label:"Facility Address",            required:false, placeholder:"123 Industrial Blvd, Indianapolis, IN 46201" },
-  { key:"proposalDate",       label:"Proposal Date",               required:false, type:"date" },
-  { key:"monthlyFeeTotal",    label:"Total Monthly Fee",           required:false, placeholder:"$12,500" },
-  { key:"timeline",           label:"Project Timeline (optional)", required:false, full:true, type:"textarea", placeholder:"Optional — paste or describe a timeline and it will be included as a table.\n\nExample: Weeks 1-4: Procurement | Weeks 5-6: Installation | Week 7: Commissioning" },
-  { key:"includeSignature",   label:"Include Signature Block?",    required:false, type:"select", options:[{value:"",label:"No signature block"},{value:"yes",label:"Yes — include signature block"}] },
-  { key:"executiveSummary",   label:"Executive Summary",           required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or describe the service being proposed and the value to the client." },
-  { key:"inScope",            label:"In-Scope Services",           required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what Solution Group will provide under this agreement." },
+  { key:"clientLegalName",     label:"Client Legal Name",            required:true,  placeholder:"Acme Corporation" },
+  { key:"clientShortName",     label:"Client Short Name",            required:false, placeholder:"Acme" },
+  { key:"facilityAddress",     label:"Facility Address",             required:false, placeholder:"123 Industrial Blvd, Indianapolis, IN 46201" },
+  { key:"proposalDate",        label:"Proposal Date",                required:false, type:"date" },
+  { key:"monthlyFeeTotal",     label:"Total Monthly Fee",            required:false, placeholder:"$12,500" },
+  { key:"contractLengthDays",  label:"Contract Length (days)",       required:true,  placeholder:"365", type:"number" },
+  { key:"timeline",            label:"Project Timeline (optional)",  required:false, full:true, type:"textarea", placeholder:"Optional — paste or describe a timeline and it will be included as a table.\n\nExample: Weeks 1-4: Procurement | Weeks 5-6: Installation | Week 7: Commissioning" },
+  { key:"includeSignature",    label:"Include Signature Block?",     required:false, type:"select", options:[{value:"",label:"No signature block"},{value:"yes",label:"Yes — include signature block"}] },
+  { key:"executiveSummary",    label:"Executive Summary",            required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or describe the service being proposed and the value to the client." },
+  { key:"inScope",             label:"In-Scope Services",            required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what Solution Group will provide under this agreement." },
   { key:"additionalInstructions", label:"Any Additional Instructions", required:false, full:true, type:"textarea", placeholder:"Optional — guide Claude on tone, length, formality, or emphasis.\n\nExamples: \"Keep it concise and executive-friendly\", \"Use a more technical tone\", \"Emphasize regulatory compliance\"", help:"Adjust tone, length, formality, emphasis, or specific sections." },
 ];
 
@@ -338,14 +344,15 @@ const OTHER_FIELDS = [
 ];
 
 const PROJECT_PROPOSAL_FIELDS = [
-  { key:"clientLegalName",    label:"Client Legal Name",     required:true,  placeholder:"Sabrosura Foods, LLC" },
-  { key:"clientShortName",    label:"Client Short Name",     required:false, placeholder:"Sabrosura" },
-  { key:"projectTitle",       label:"Project Title",         required:true,  placeholder:"pH Adjust System Replacement" },
-  { key:"proposalDate",       label:"Proposal Date",         required:false, type:"date" },
+  { key:"clientLegalName",    label:"Client Legal Name",          required:true,  placeholder:"Sabrosura Foods, LLC" },
+  { key:"clientShortName",    label:"Client Short Name",          required:false, placeholder:"Sabrosura" },
+  { key:"projectTitle",       label:"Project Title",              required:true,  placeholder:"pH Adjust System Replacement" },
+  { key:"proposalDate",       label:"Proposal Date",              required:false, type:"date" },
+  { key:"projectLengthDays",  label:"Estimated Project Length (days)", required:true, placeholder:"60", type:"number" },
   { key:"timeline",           label:"Project Timeline (optional)", required:false, full:true, type:"textarea", placeholder:"Optional — describe a timeline and it will be included as a table.\n\nExample: Weeks 1-4: Parts procurement | Weeks 5-6: Build and ship | Weeks 7-8: Install and startup" },
-  { key:"includeSignature",   label:"Include Signature Block?", required:false, type:"select", options:[{value:"",label:"No signature block"},{value:"yes",label:"Yes — include signature block"}] },
-  { key:"executiveSummary",   label:"Executive Summary",     required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or describe the system and the value it delivers to the client." },
-  { key:"inScope",            label:"In-Scope Deliverables", required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what Solution Group will supply, install, and deliver." },
+  { key:"includeSignature",   label:"Include Signature Block?",   required:false, type:"select", options:[{value:"",label:"No signature block"},{value:"yes",label:"Yes — include signature block"}] },
+  { key:"executiveSummary",   label:"Executive Summary",          required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or describe the system and the value it delivers to the client." },
+  { key:"inScope",            label:"In-Scope Deliverables",      required:false, full:true, type:"textarea", placeholder:"Auto-populated from uploaded files — or list what Solution Group will supply, install, and deliver." },
   { key:"additionalInstructions", label:"Any Additional Instructions", required:false, full:true, type:"textarea",
     placeholder:"Optional — guide Claude on tone, length, formality, emphasis, or anything else.\n\nExamples: \"Keep it concise and executive-friendly\", \"Use a more technical tone\", \"Emphasize regulatory compliance throughout\"",
     help:"Adjust tone, length, formality, emphasis, or specific sections." },
@@ -353,7 +360,7 @@ const PROJECT_PROPOSAL_FIELDS = [
 
 const DOC_TYPES = [
   { id:"assessment", icon:"🔍", title:"Assessment",         desc:"Operational & technical findings report with recommendations. No pricing.", badge:"Assessment",  badgeClass:"badge-a" },
-  { id:"proposal",   icon:"📄", title:"Reoccurring Proposal", desc:"4–5 page O&M service proposal with service confirmation and pricing summary.", badge:"O&M Proposal", badgeClass:"badge-p" },
+  { id:"proposal",   icon:"📄", title:"Recurring Proposal", desc:"4–5 page O&M service proposal with service confirmation and pricing summary.", badge:"O&M Proposal", badgeClass:"badge-p" },
   { id:"project",    icon:"🏗️", title:"Project Proposal",   desc:"Full capital project proposal: scope, architecture, schedule, itemized pricing, and signature block.", badge:"CapEx Project", badgeClass:"badge-proj" },
 ];
 
@@ -369,6 +376,15 @@ function readFileAsBase64(file) {
     r.onerror = () => rej(new Error("Failed to read file"));
     r.readAsDataURL(file);
   });
+}
+
+// Calculate end date by adding days to a YYYY-MM-DD date string
+function calculateEndDate(startDate, days) {
+  if (!startDate || !days || isNaN(Number(days))) return null;
+  const d = new Date(startDate);
+  if (isNaN(d.getTime())) return null;
+  d.setDate(d.getDate() + Number(days));
+  return d.toISOString().split('T')[0];
 }
 
 async function readDocxAsText(file) {
@@ -411,6 +427,12 @@ FIELD MAPPING GUIDANCE:
 - "projectTitle": main project heading or title.
 - "executiveSummary": executive summary text (truncate to 500 chars if very long).
 - "inScope": in-scope deliverables as a single string with items separated by newlines.
+- "managementCost": management, O&M, or overhead cost line from pricing table. Include $ and commas.
+- "equipmentCost": equipment, parts, or materials cost from pricing table. Include $ and commas.
+- "laborCost": labor, installation, or engineering labor cost from pricing table. Include $ and commas.
+- "technologyCost": technology, software, OptiClear, or monitoring cost from pricing table. Include $ and commas.
+- "projectLengthDays": estimated project duration — convert to days (1 week = 7 days, 1 month = 30 days).
+- "contractLengthDays": contract duration — convert to days (1 month = 30 days, 1 year = 365 days).
 
 Dates → YYYY-MM-DD. closeProbability → number 0-100. All other values → plain strings.`;
 }
@@ -632,7 +654,7 @@ export default function App() {
     setDocType(type); setErrors({});
     setParsed(false); setParseErr(""); setGenErr("");
     setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null);
-    const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Reoccurring" : "";
+    const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Recurring" : "";
     setFormData(prev => ({ ...prev, pipeline: defaultPipeline }));
     setPage("form");
   };
@@ -691,12 +713,20 @@ Extract values for these keys: ${JSON.stringify([...allKeys, "suggestedDocType"]
 FIELD MAPPING:
 - "sgContactName": default "Ted Winkelman" if not found
 - "sgContactEmail": default "twinkelman@solutionmgt.com" if not found
-- "dealAmount": any total dollar figure — most important field
+- "dealAmount": any total dollar figure — most important field. Include $ and commas.
 - "closeDate"/"proposalDate": any document date, format YYYY-MM-DD
 - "clientLegalName"/"clientShortName": client/customer name
 - "projectTitle": main project heading
 - "executiveSummary": executive summary text (max 500 chars)
-- "inScope": in-scope items as newline-separated string`;
+- "inScope": in-scope items as newline-separated string
+- "managementCost": management/O&M/overhead cost from pricing table. Include $ and commas.
+- "equipmentCost": equipment/parts/materials cost from pricing table. Include $ and commas.
+- "laborCost": labor/installation cost from pricing table. Include $ and commas.
+- "technologyCost": technology/software/monitoring cost from pricing table. Include $ and commas.
+- "projectLengthDays": project duration in days (1 week = 7 days, 1 month = 30 days)
+- "contractLengthDays": contract duration in days (1 month = 30 days, 1 year = 365 days)
+- "customerContactName": primary customer/client contact person full name
+- "customerContactEmail": primary customer/client contact email address`;
 
       msgContent.push({ type:"text", text: prompt });
       const raw = await callClaude(msgContent, 2500);
@@ -724,7 +754,7 @@ FIELD MAPPING:
       });
 
       const suggested = extracted.suggestedDocType || "project";
-      const defaultPipeline = suggested === "project" ? "Project" : suggested === "proposal" ? "Reoccurring" : "";
+      const defaultPipeline = suggested === "project" ? "Project" : suggested === "proposal" ? "Recurring" : "";
       merged.pipeline = merged.pipeline || defaultPipeline;
 
       setFormData(merged);
@@ -918,6 +948,12 @@ FIELD MAPPING:
                 sgContactEmail:       formData.sgContactEmail,
                 customerContactName:  formData.customerContactName,
                 customerContactEmail: formData.customerContactEmail,
+                managementCost:       formData.managementCost,
+                equipmentCost:        formData.equipmentCost,
+                laborCost:            formData.laborCost,
+                technologyCost:       formData.technologyCost,
+                projectLengthDays:    formData.projectLengthDays,
+                contractLengthDays:   formData.contractLengthDays,
                 existingDealId:       lastDealId,
               }),
             });
@@ -1092,7 +1128,7 @@ FIELD MAPPING:
           <div className="form-main">
             <button className="form-back" onClick={()=>setPage("intake")}>← Back</button>
             <div className="form-title">
-              {docType==="assessment"?"Assessment":docType==="proposal"?"Reoccurring Proposal":docType==="project"?"Project Proposal":"Document"}
+              {docType==="assessment"?"Assessment":docType==="proposal"?"Recurring Proposal":docType==="project"?"Project Proposal":"Document"}
             </div>
             <div className="form-subtitle">
               {aiKeys.size > 0
@@ -1127,6 +1163,22 @@ FIELD MAPPING:
               <div className="field-grid" style={{marginTop:12}}>
                 {PIPELINE_FIELDS.slice(4).map(renderField)}
               </div>
+
+              {/* Calculated end date — shown based on pipeline type */}
+              {(() => {
+                const isProject  = formData.pipeline === "Project";
+                const isRecurring = formData.pipeline === "Recurring";
+                const lengthDays = isProject ? formData.projectLengthDays : isRecurring ? formData.contractLengthDays : null;
+                const endDate    = calculateEndDate(formData.closeDate, lengthDays);
+                const label      = isProject ? "Estimated Project End Date" : "Estimated Contract End Date";
+                if (!endDate) return null;
+                return (
+                  <div style={{marginTop:12, padding:"10px 14px", background:"#f0f5ff", borderRadius:6, border:`1px solid ${SG_BLUE}`, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+                    <span style={{fontSize:12, fontWeight:600, color:SG_BLUE}}>{label}</span>
+                    <span style={{fontSize:13, fontWeight:500, color:"#333"}}>{new Date(endDate + 'T00:00:00').toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'})}</span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* DOC DETAILS */}
@@ -1237,6 +1289,12 @@ FIELD MAPPING:
                                   sgContactEmail:       updated.sgContactEmail,
                                   customerContactName:  updated.customerContactName,
                                   customerContactEmail: updated.customerContactEmail,
+                                  managementCost:       updated.managementCost,
+                                  equipmentCost:        updated.equipmentCost,
+                                  laborCost:            updated.laborCost,
+                                  technologyCost:       updated.technologyCost,
+                                  projectLengthDays:    updated.projectLengthDays,
+                                  contractLengthDays:   updated.contractLengthDays,
                                   existingDealId:       lastDealId,
                                   docBase64:            revDocBase64,
                                   filename:             hsFilename,
@@ -1287,7 +1345,7 @@ FIELD MAPPING:
             <img src={SG_LOGO} alt="Solution Group" className="overlay-logo" />
             <div className="spinner" />
             <h3>Generating document…</h3>
-            <p>Claude is writing your {docType==="assessment"?"assessment":docType==="proposal"?"reoccurring proposal":docType==="project"?"project proposal":"document"}.</p>
+            <p>Claude is writing your {docType==="assessment"?"assessment":docType==="proposal"?"recurring proposal":docType==="project"?"project proposal":"document"}.</p>
             <div className="steps">
               {GEN_STEPS.map((s,i)=>(
                 <div key={i} className={`step ${i<genStep?"done":i===genStep?"active":""}`}>
