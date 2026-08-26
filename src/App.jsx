@@ -289,11 +289,8 @@ const styles = `
 // ── fields ────────────────────────────────────────────────────────────────────
 
 const PIPELINE_FIELDS = [
-  { key:"pipeline", label:"Pipeline", required:true, type:"select", options:[
-    {value:"",label:"Select pipeline…"},
-    {value:"Project",label:"Project (one-time)"},
-    {value:"Recurring",label:"Recurring (ongoing contract)"},
-  ]},
+  // Pipeline is auto-set based on doc type — not shown as editable field
+  { key:"pipeline", label:"Pipeline", required:true, type:"hidden" },
   { key:"dealAmount",           label:"Deal Amount",                    required:true,  placeholder:"$150,000" },
   { key:"closeDate",            label:"Expected Close Date",            required:true,  type:"date" },
   { key:"closeProbability",     label:"Probability of Closing (%)",     required:false, placeholder:"75", type:"number" },
@@ -637,6 +634,7 @@ export default function App() {
   const [revisions,    setRevisions]   = useState("");
   const [lastConfig,   setLastConfig]  = useState(null);
   const [lastDealId,   setLastDealId]  = useState(null);
+  const [revisionCount, setRevisionCount] = useState(0);
   const [triggerRegen, setTriggerRegen] = useState(false);
 
   useEffect(() => {
@@ -653,7 +651,7 @@ export default function App() {
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null);
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0);
     const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Recurring" : "";
     setFormData(prev => ({ ...prev, pipeline: defaultPipeline }));
     setPage("form");
@@ -663,7 +661,7 @@ export default function App() {
     setDocType(null); setFormData({}); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null);
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0);
     setPage("intake");
   };
 
@@ -866,23 +864,27 @@ FIELD MAPPING:
   // ── generate ──
   const validate = () => {
     const errs={};
-    allFields.filter(f=>f.required).forEach(f=>{ if(!formData[f.key]?.toString().trim()) errs[f.key]=true; });
+    allFields.filter(f=>f.required && f.type !== "hidden").forEach(f=>{ if(!formData[f.key]?.toString().trim()) errs[f.key]=true; });
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
-      // Build a helpful message listing exactly which fields are missing
-      const missingLabels = allFields
-        .filter(f => f.required && errs[f.key])
-        .map(f => f.label);
+      const missingLabels = allFields.filter(f => f.required && f.type !== "hidden" && errs[f.key]).map(f => f.label);
       const msg = missingLabels.length === 1
         ? `Please fill in the required field: ${missingLabels[0]}`
         : `Please fill in all required fields before generating:\n• ${missingLabels.join('\n• ')}`;
       setGenErr(msg);
-      // Scroll to the top of the form so user sees the error
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Scroll to first error field
+      const firstKey = allFields.find(f => f.required && f.type !== "hidden" && errs[f.key])?.key;
+      if (firstKey) {
+        const el = document.querySelector(`[data-field="${firstKey}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return false;
     }
     return true;
   };
+
+  const handleGenerate = async () => {
+    if (!validate()) return;
     setGenErr(""); setGenerating(true); setGenStep(0);
     try {
       const content = [];
@@ -974,10 +976,11 @@ FIELD MAPPING:
   };
 
   const renderField = (f) => {
+    if (f.type === "hidden") return null;
     const isAI = aiKeys.has(f.key);
     const cls  = errors[f.key] ? "err" : isAI ? "ai-filled" : "";
     return (
-      <div key={f.key} className="field" style={f.full?{gridColumn:"1 / -1"}:{}}>
+      <div key={f.key} className="field" data-field={f.key} style={f.full?{gridColumn:"1 / -1"}:{}}>
         <label>
           {f.label}
           {f.required ? <span className="req"> *</span> : <span className="opt"> optional</span>}
@@ -1135,7 +1138,14 @@ FIELD MAPPING:
 
             {/* DEAL INFO */}
             <div className="section">
-              <div className="section-title">Deal Information</div>
+              <div className="section-title">
+                Deal Information
+                {formData.pipeline && (
+                  <span className="pill" style={{background:"rgba(255,255,255,0.25)",marginLeft:"auto"}}>
+                    Pipeline: {formData.pipeline}
+                  </span>
+                )}
+              </div>
               <div className="field-grid">
                 {PIPELINE_FIELDS.slice(0,4).map(renderField)}
               </div>
@@ -1182,6 +1192,11 @@ FIELD MAPPING:
                   {filledAll} of {totalFields} total fields filled · more detail = better document
                 </div>
                 {reqPct===100 && <div style={{fontSize:12,color:"#1D9E75",marginTop:2}}>✓ Ready to generate</div>}
+                {genErr && (
+                  <div style={{fontSize:12,color:"#991b1b",marginTop:6,fontWeight:500,whiteSpace:"pre-line",lineHeight:1.5}}>
+                    ⚠ {genErr}
+                  </div>
+                )}
               </div>
               <button className="btn-gen" onClick={handleGenerate} disabled={generating}>
                 ⬇ Generate & Download
@@ -1192,13 +1207,43 @@ FIELD MAPPING:
             {generated && (
               <div className="revision-box">
                 <h4>Need to make some changes?</h4>
-                <p>Describe the changes that need to be made — the more detail the better.</p>
+                <p>
+                  Describe specific changes — e.g. "Update the total to $380,000", "Add a signature block", "Change the close date to September 1st".
+                  {revisionCount > 0 && <span style={{color:"#9aa5b4"}}> ({revisionCount} revision{revisionCount > 1 ? "s" : ""} made)</span>}
+                </p>
+
+                {/* After 2+ revisions — show start-from-scratch guidance */}
+                {revisionCount >= 2 && (
+                  <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:6,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#92400e",lineHeight:1.6}}>
+                    <strong>Tip:</strong> The revision tool works best for targeted changes — updating a number, adding a clause, changing a date.
+                    If you need broader changes to the document structure, layout, or overall content, starting fresh will give better results.
+                  </div>
+                )}
+
                 <textarea
-                  placeholder="e.g. 'Shorten the engineering scope section', 'Add a note about permit timeline in assumptions', 'The total should be $380,000 not $411,000'..."
+                  placeholder="e.g. 'Update the total to $380,000', 'Add a signature block', 'Shorten the engineering scope to 2 sentences', 'Change the close date to September 1st'..."
                   value={revisions}
                   onChange={e=>setRevisions(e.target.value)}
                 />
                 <div className="revision-actions">
+                  {/* Start from scratch — always visible */}
+                  <button
+                    className="btn-revise"
+                    style={{background:"white",color:"#7a8a9a",border:"1px solid #e2e8f0",fontSize:12}}
+                    disabled={generating}
+                    onClick={() => {
+                      setGenerated(false);
+                      setRevisions("");
+                      setLastConfig(null);
+                      setRevisionCount(0);
+                      setGenErr("");
+                      // Scroll back to top of form
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                  >
+                    ↺ Start Over with Fresh Generation
+                  </button>
+
                   <button
                     className="btn-revise"
                     disabled={!revisions.trim() || generating}
@@ -1208,6 +1253,7 @@ FIELD MAPPING:
                       const revisionWithDate = `Today's date is ${todayStr}. ${revisionText}`;
                       setRevisions("");
                       setGenerated(false);
+                      setRevisionCount(prev => prev + 1);
                       setFormData(prev => {
                         const updated = {
                           ...prev,
