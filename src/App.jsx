@@ -40,14 +40,14 @@ const styles = `
   .home { max-width: 860px; margin: 0 auto; padding: 72px 24px 60px; text-align: center; }
   .home h1 { font-size: 44px; font-weight: 600; color: ${SG_BLUE}; line-height: 1.1; margin-bottom: 12px; letter-spacing: -0.5px; }
   .home > p { font-size: 15px; color: #5a6a80; max-width: 460px; margin: 0 auto 52px; line-height: 1.65; font-weight: 300; }
-  .doc-cards { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; max-width: 860px; margin: 0 auto; }
+  .doc-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; max-width: 960px; margin: 0 auto; }
 
   /* INTAKE PAGE */
   .intake-page { max-width: 720px; margin: 0 auto; padding: 60px 24px 80px; }
   .intake-title { font-size: 32px; font-weight: 600; color: ${SG_BLUE}; margin-bottom: 8px; letter-spacing: -0.3px; text-align: center; }
   .intake-sub { font-size: 15px; color: #7a8a9a; text-align: center; margin-bottom: 40px; font-weight: 300; line-height: 1.6; max-width: 480px; margin-left: auto; margin-right: auto; }
-  .intake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
-  .intake-card { background: white; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 10px; padding: 28px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+  .intake-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; align-items: start; min-width: 0; }
+  .intake-card { background: white; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 10px; padding: 28px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; min-width: 0; overflow: hidden; }
   .intake-card h3 { font-size: 16px; font-weight: 600; color: #1a2332; }
   .intake-card p { font-size: 12px; color: #9aa5b4; line-height: 1.55; font-weight: 300; }
   .intake-upload-zone { border: 2px dashed #c8d4e8; border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.18s; background: #fafbfc; width: 100%; }
@@ -55,7 +55,7 @@ const styles = `
   .intake-upload-icon { font-size: 32px; margin-bottom: 8px; }
   .intake-upload-zone h4 { font-size: 14px; font-weight: 500; color: #2d3748; margin-bottom: 3px; }
   .intake-upload-zone p { font-size: 11px; color: #9aa5b4; }
-  .intake-paste { width: 100%; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 8px; padding: 14px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; resize: vertical; min-height: 140px; outline: none; line-height: 1.6; background: #fafbfc; }
+  .intake-paste { width: 100%; min-width: 0; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 8px; padding: 14px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; resize: vertical; min-height: 140px; outline: none; line-height: 1.6; background: #fafbfc; box-sizing: border-box; }
   .intake-paste:focus { border-color: ${SG_BLUE}; background: white; }
   .intake-files { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
   .intake-file { display: flex; align-items: center; gap: 9px; background: ${SG_LIGHT}; border-radius: 4px; padding: 6px 11px; font-size: 13px; color: ${SG_BLUE}; }
@@ -66,6 +66,18 @@ const styles = `
   .btn-parse-big:hover:not(:disabled) { background: #1e4380; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(43,87,154,0.22); }
   .btn-parse-big:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .intake-or { text-align: center; font-size: 12px; color: #b0bbc8; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; margin: 4px 0; }
+
+  /* CUSTOM PAGE */
+  .custom-page { max-width: 720px; margin: 0 auto; padding: 52px 24px 80px; }
+  .custom-title { font-size: 30px; font-weight: 600; color: ${SG_BLUE}; margin-bottom: 6px; letter-spacing: -0.3px; }
+  .custom-sub { font-size: 14px; color: #7a8a9a; margin-bottom: 28px; font-weight: 300; line-height: 1.6; }
+  .custom-prompt { width: 100%; border: 1.5px solid ${SG_BORDER_GRAY}; border-radius: 8px; padding: 16px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: #333; resize: vertical; min-height: 180px; outline: none; line-height: 1.7; background: white; box-sizing: border-box; }
+  .custom-prompt:focus { border-color: ${SG_BLUE}; box-shadow: 0 0 0 3px rgba(43,87,154,0.1); }
+  .custom-examples { margin: 16px 0; padding: 14px 18px; background: #f8f9fc; border-radius: 8px; border-left: 3px solid ${SG_TEAL}; }
+  .custom-examples p { font-size: 12px; color: #7a8a9a; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .custom-examples ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .custom-examples li { font-size: 13px; color: #5a6a80; cursor: pointer; padding: 2px 0; }
+  .custom-examples li:hover { color: ${SG_BLUE}; text-decoration: underline; }
   @media(max-width:640px){ .intake-grid { grid-template-columns: 1fr; } }
   .doc-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 28px 24px 24px; cursor: pointer; transition: all 0.18s; text-align: left; position: relative; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
   .doc-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:${SG_BLUE}; transform:scaleX(0); transition:transform 0.18s; }
@@ -78,6 +90,7 @@ const styles = `
   .badge-a { background:${SG_LIGHT}; color:${SG_BLUE}; }
   .badge-p { background:#d5f0ec; color:#0a6554; }
   .badge-proj { background:#fde8cc; color:#7a3e00; }
+  .badge-o { background:#f0f0f5; color:#555; }
 
   .api-notice { background:#fffbeb; border:1px solid #fcd34d; border-radius:8px; padding:14px 18px; font-size:13px; color:#92400e; margin-bottom:20px; }
   .api-notice a { color:${SG_BLUE}; }
@@ -283,6 +296,7 @@ const styles = `
     .home h1{font-size:32px;}
     .gen-bar{flex-direction:column;align-items:stretch;}
     .header{padding:0 20px;}
+    .intake-grid{grid-template-columns:1fr;}
   }
 `;
 
@@ -359,6 +373,7 @@ const DOC_TYPES = [
   { id:"assessment", icon:"🔍", title:"Assessment",         desc:"Operational & technical findings report with recommendations. No pricing.", badge:"Assessment",  badgeClass:"badge-a" },
   { id:"proposal",   icon:"📄", title:"Recurring Proposal", desc:"4–5 page O&M service proposal with service confirmation and pricing summary.", badge:"O&M Proposal", badgeClass:"badge-p" },
   { id:"project",    icon:"🏗️", title:"Project Proposal",   desc:"Full capital project proposal: scope, architecture, schedule, itemized pricing, and signature block.", badge:"CapEx Project", badgeClass:"badge-proj" },
+  { id:"custom",     icon:"✏️", title:"Custom Document",    desc:"Freeform — describe exactly what you need. No predefined structure or required fields.", badge:"Freeform", badgeClass:"badge-o" },
 ];
 
 const PARSE_STEPS = ["Reading uploaded files","Extracting data with Claude","Populating form fields"];
@@ -636,6 +651,10 @@ export default function App() {
   const [lastDealId,   setLastDealId]  = useState(null);
   const [revisionCount, setRevisionCount] = useState(0);
   const [triggerRegen, setTriggerRegen] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [customFiles,  setCustomFiles]  = useState([]);
+  const [customErr,    setCustomErr]    = useState("");
+  const [customGenerating, setCustomGenerating] = useState(false);
 
   useEffect(() => {
     if (triggerRegen) {
@@ -657,12 +676,64 @@ export default function App() {
     setPage("form");
   };
 
-  const startIntake = () => {
+  const startIntake = (type) => {
+    if (type === 'custom') {
+      setCustomPrompt(""); setCustomFiles([]); setCustomErr("");
+      setPage("custom");
+      return;
+    }
     setDocType(null); setFormData({}); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
     setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0);
     setPage("intake");
+  };
+
+  const handleCustomGenerate = async () => {
+    if (!customPrompt.trim() && !customFiles.length) { setCustomErr("Describe what you need or upload a file first."); return; }
+    setCustomErr(""); setCustomGenerating(true);
+    try {
+      // Extract file text
+      const fileContents = [];
+      for (const f of customFiles) {
+        if (f.name.endsWith(".docx") || f.type.includes("wordprocessingml")) {
+          const text = await readDocxAsText(f);
+          fileContents.push(`[Document: ${f.name}]\n${text}`);
+        } else if (f.name.endsWith(".csv") || f.type==="text/csv" || f.type==="text/plain") {
+          const text = await f.text();
+          fileContents.push(`[File: ${f.name}]\n${text}`);
+        } else if (f.type === "application/pdf") {
+          fileContents.push(`[PDF: ${f.name} — attached]`);
+        }
+      }
+      const resp = await fetch("/api/generate-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docType: "custom",
+          formData: { customPrompt, additionalInstructions: customPrompt },
+          pastedText: "",
+          fileContents,
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        throw new Error(err?.error || `Server error ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const now = new Date();
+      const dateShort = `${now.getMonth()+1}.${String(now.getDate()).padStart(2,'0')}`;
+      a.href = dlUrl;
+      a.download = `SG Custom Document - ${dateShort}.docx`;
+      a.click();
+      URL.revokeObjectURL(dlUrl);
+      setCustomGenerating(false);
+    } catch(e) {
+      setCustomGenerating(false);
+      setCustomErr(`Generation failed: ${e.message}`);
+    }
   };
 
   const handleIntakeParse = async () => {
@@ -925,11 +996,17 @@ FIELD MAPPING:
       const blob = await resp.blob();
       const dlUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const client = (formData.clientShortName||formData.clientLegalName||formData.clientName||"Client").replace(/\s+/g,"_");
-      const date   = new Date().toISOString().split("T")[0].replace(/-/g,"");
-      const label  = docType==="assessment"?"Assessment":docType==="proposal"?"Proposal":docType==="project"?"Project_Proposal":"Document";
+      // Filename: {Company} {Location} {3-word description} - {M.DD}
+      const now = new Date();
+      const dateShort = `${now.getMonth()+1}.${String(now.getDate()).padStart(2,'0')}`;
+      const companyName = (formData.clientShortName || formData.clientLegalName || formData.clientName || "Client").trim();
+      const projectDesc = (formData.projectTitle || formData.serviceDescription || "")
+        .replace(/[-–—]/g, ' ')          // remove dashes/em dashes
+        .replace(/[^a-zA-Z0-9\s]/g, '')  // remove special chars
+        .split(/\s+/).filter(Boolean).slice(0, 3).join(' ');   // max 3 words
+      const filename = `${companyName}${projectDesc ? ' ' + projectDesc : ''} - ${dateShort}.docx`;
       setGenStep(3);
-      a.href=dlUrl; a.download=`${client}_${label}_${date}.docx`; a.click();
+      a.href=dlUrl; a.download=filename; a.click();
       URL.revokeObjectURL(dlUrl);
       setGenerating(false);
       setGenerated(true);
@@ -1023,7 +1100,7 @@ FIELD MAPPING:
           <p>Build a branded assessment or proposal in minutes. Upload your files and let Claude do the writing.</p>
           <div className="doc-cards">
             {DOC_TYPES.map(dt=>(
-              <div key={dt.id} className="doc-card" onClick={()=>startIntake()}>
+              <div key={dt.id} className="doc-card" onClick={()=>startIntake(dt.id)}>
                 <div className="icon">{dt.icon}</div>
                 <h3>{dt.title}</h3>
                 <p>{dt.desc}</p>
@@ -1063,7 +1140,7 @@ FIELD MAPPING:
                 <div className="intake-files" style={{width:"100%"}}>
                   {files.map((f,i)=>(
                     <div key={i} className="intake-file">
-                      📄 <span className="fname">{f.name}</span>
+                      📄 <span className="fname" style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"200px",display:"inline-block"}}>{f.name}</span>
                       <span style={{fontSize:11,color:"#9aa5b4"}}>{(f.size/1024).toFixed(0)}KB</span>
                       <button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter((_,j)=>j!==i));}}>×</button>
                     </div>
@@ -1099,6 +1176,83 @@ FIELD MAPPING:
             Claude will read your files, extract the relevant details, and open the proposal form pre-filled
           </div>
           <button className="form-back" style={{margin:"20px auto 0",display:"block"}} onClick={()=>setPage("home")}>← Back</button>
+        </div>
+      )}
+
+      {/* ── CUSTOM ── */}
+      {page==="custom" && (
+        <div className="custom-page">
+          <button className="form-back" onClick={()=>setPage("home")}>← Back</button>
+          <div className="custom-title">Custom Document</div>
+          <div className="custom-sub">
+            Describe exactly what you need — no predefined structure, no required fields.
+            Upload any relevant files and tell Claude what to produce.
+          </div>
+
+          <div className="custom-examples">
+            <p>Examples — click to use</p>
+            <ul>
+              {[
+                "Rewrite the executive summary of the attached proposal to be more concise — no more than 2 short paragraphs",
+                "Write a one-page follow-up letter to the client referencing the attached proposal and confirming next steps",
+                "Pull the key pricing from the attached documents and create a simple comparison table",
+                "Draft a brief project update memo summarizing where we are and what's left to complete",
+                "Summarize the attached site assessment into a 5-bullet executive briefing for leadership",
+              ].map((ex,i) => (
+                <li key={i} onClick={()=>setCustomPrompt(ex)}>"{ex}"</li>
+              ))}
+            </ul>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,fontWeight:600,color:"#4a5568",marginBottom:6,letterSpacing:"0.2px"}}>
+              What do you need? <span style={{color:"#e24b4a"}}>*</span>
+            </div>
+            <textarea
+              className="custom-prompt"
+              placeholder={"Describe what you need — be as specific as possible.\n\nExamples:\n• 'Rewrite the executive summary to be 2 sentences'\n• 'Pull all pricing from the attached docs into one table'\n• 'Write a follow-up email referencing the Agropur proposal'"}
+              value={customPrompt}
+              onChange={e=>{setCustomPrompt(e.target.value);setCustomErr("");}}
+            />
+          </div>
+
+          {/* File upload */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:600,color:"#4a5568",marginBottom:6,letterSpacing:"0.2px"}}>Attach files <span style={{color:"#9aa5b4",fontWeight:400}}>(optional)</span></div>
+            <div
+              style={{border:"2px dashed #c8d4e8",borderRadius:8,padding:"18px 24px",textAlign:"center",cursor:"pointer",background:"#fafbfc",transition:"all 0.18s"}}
+              onDragOver={e=>{e.preventDefault();}}
+              onDrop={e=>{e.preventDefault();setCustomFiles(p=>[...p,...Array.from(e.dataTransfer.files)].slice(0,5));}}
+              onClick={()=>document.getElementById('custom-file-input').click()}
+            >
+              <input id="custom-file-input" type="file" multiple accept=".pdf,.docx,.xlsx,.csv,.txt,.png,.jpg" style={{display:"none"}} onChange={e=>setCustomFiles(p=>[...p,...Array.from(e.target.files)].slice(0,5))} />
+              <div style={{fontSize:24,marginBottom:6}}>📎</div>
+              <div style={{fontSize:13,color:"#7a8a9a"}}>Drop files or click to upload — PDF, DOCX, XLSX, CSV, images</div>
+            </div>
+            {customFiles.length > 0 && (
+              <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:4}}>
+                {customFiles.map((f,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:SG_LIGHT,borderRadius:4,padding:"6px 10px",fontSize:13,color:SG_BLUE}}>
+                    📄 <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</span>
+                    <button onClick={()=>setCustomFiles(p=>p.filter((_,j)=>j!==i))} style={{background:"none",border:"none",color:"#9aa5b4",cursor:"pointer",fontSize:16}}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {customErr && <div className="err-banner" style={{marginBottom:12}}><span>⚠</span><span>{customErr}</span></div>}
+
+          <button
+            className="btn-parse-big"
+            onClick={handleCustomGenerate}
+            disabled={(!customPrompt.trim() && !customFiles.length) || customGenerating}
+          >
+            {customGenerating ? "⏳ Generating…" : "⬇ Generate & Download"}
+          </button>
+          <div style={{textAlign:"center",marginTop:10,fontSize:12,color:"#b0bbc8"}}>
+            No HubSpot deal is created for custom documents
+          </div>
         </div>
       )}
 
@@ -1138,14 +1292,7 @@ FIELD MAPPING:
 
             {/* DEAL INFO */}
             <div className="section">
-              <div className="section-title">
-                Deal Information
-                {formData.pipeline && (
-                  <span className="pill" style={{background:"rgba(255,255,255,0.25)",marginLeft:"auto"}}>
-                    Pipeline: {formData.pipeline}
-                  </span>
-                )}
-              </div>
+              <div className="section-title">Deal Information</div>
               <div className="field-grid">
                 {PIPELINE_FIELDS.slice(0,4).map(renderField)}
               </div>
@@ -1286,10 +1433,14 @@ FIELD MAPPING:
                             const revBlob = await resp.blob();
                             const dlUrl = URL.createObjectURL(revBlob);
                             const a = document.createElement("a");
-                            const client = (updated.clientShortName||updated.clientLegalName||updated.clientName||"Client").replace(/\s+/g,"_");
-                            const date = new Date().toISOString().split("T")[0].replace(/-/g,"");
-                            const label = docType==="assessment"?"Assessment":docType==="proposal"?"Proposal":docType==="project"?"Project_Proposal":"Document";
-                            a.href=dlUrl; a.download=`${client}_${label}_${date}.docx`; a.click();
+                            const revNow = new Date();
+                            const revDateShort = `${revNow.getMonth()+1}.${String(revNow.getDate()).padStart(2,'0')}`;
+                            const revCompany = (updated.clientShortName||updated.clientLegalName||updated.clientName||"Client").trim();
+                            const revDesc = (updated.projectTitle||updated.serviceDescription||"")
+                              .replace(/[-–—]/g,' ').replace(/[^a-zA-Z0-9\s]/g,'')
+                              .split(/\s+/).filter(Boolean).slice(0,3).join(' ');
+                            const revFilename = `${revCompany}${revDesc ? ' '+revDesc : ''} - ${revDateShort}.docx`;
+                            a.href=dlUrl; a.download=revFilename; a.click();
                             URL.revokeObjectURL(dlUrl);
                             setGenerating(false);
                             setGenerated(true);
