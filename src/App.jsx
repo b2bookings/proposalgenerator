@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 
 const SG_BLUE = "#2B579A";
 const SG_LIGHT = "#D5E8F0";
@@ -681,7 +681,6 @@ export default function App() {
   const [lastConfig,   setLastConfig]  = useState(null);
   const [lastDealId,   setLastDealId]  = useState(null);
   const [revisionCount, setRevisionCount] = useState(0);
-  const [triggerRegen, setTriggerRegen] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
   const [customFiles,  setCustomFiles]  = useState([]);
   const [customErr,    setCustomErr]    = useState("");
@@ -723,16 +722,7 @@ export default function App() {
     }, EMAIL_DELAY_MS);
   };
 
-  useEffect(() => {
-    if (triggerRegen) {
-      setTriggerRegen(false);
-      handleGenerate();
-    }
-  }, [triggerRegen]);
   const fileRef = useRef();
-  const generateRef = useRef(null);
-
-
 
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
