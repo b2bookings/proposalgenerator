@@ -663,8 +663,13 @@ export default function App() {
   const [docType,     setDocType]     = useState(null);
   const [formData,    setFormData]    = useState(() => {
     const saved = localStorage.getItem("sg_generated_by");
-    // Only restore if user explicitly saved their name — empty string means they need to fill it in
-    return saved && saved.trim() && saved !== "Proposal Generator" ? { generatedBy: saved } : {};
+    const threeMonths = new Date();
+    threeMonths.setMonth(threeMonths.getMonth() + 3);
+    const defaultCloseDate = threeMonths.toISOString().split('T')[0];
+    return {
+      closeDate: defaultCloseDate,
+      ...(saved && saved.trim() && saved !== "Proposal Generator" ? { generatedBy: saved } : {}),
+    };
   });
   const [aiKeys,      setAiKeys]      = useState(new Set());
   const [pastedText,  setPastedText]  = useState("");
@@ -729,7 +734,10 @@ export default function App() {
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0); setFormData(prev => ({ generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "" }));
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0); setFormData(prev => {
+      const threeMonths = new Date(); threeMonths.setMonth(threeMonths.getMonth() + 3);
+      return { closeDate: threeMonths.toISOString().split("T")[0], generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "" };
+    });
     const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Recurring" : "";
     setFormData(prev => ({ ...prev, pipeline: defaultPipeline }));
     setPage("form");
@@ -744,7 +752,10 @@ export default function App() {
     setDocType(null); setFormData({}); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0); setFormData(prev => ({ generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "" }));
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0); setFormData(prev => {
+      const threeMonths = new Date(); threeMonths.setMonth(threeMonths.getMonth() + 3);
+      return { closeDate: threeMonths.toISOString().split("T")[0], generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "" };
+    });
     setPage("intake");
   };
 
