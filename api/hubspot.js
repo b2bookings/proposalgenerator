@@ -120,7 +120,7 @@ module.exports = async function (req, res) {
       docType, clientName, clientShortName, projectTitle,
       pipeline, dealAmount, closeDate, closeProbability,
       sgContactName, sgContactEmail, customerContactName, customerContactEmail,
-      existingDealId,
+      existingDealId, generatedBy,
       managementCost, equipmentCost, laborCost, technologyCost,
       projectLengthDays, contractLengthDays,
     } = body;
@@ -168,6 +168,7 @@ module.exports = async function (req, res) {
       dealId = existingDealId;
     } else {
       console.log('Creating new deal:', dealName);
+      // Owner = Primary SG Contact on the deal
       const ownerId = await findOwnerByEmail(sgContactEmail);
       if (ownerId) dealProps.hubspot_owner_id = ownerId;
 
