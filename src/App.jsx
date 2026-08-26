@@ -35,7 +35,31 @@ const styles = `
   .header-text { display: flex; flex-direction: column; gap: 2px; }
   .header-title { font-size: 15px; font-weight: 600; color: white; letter-spacing: 0.2px; }
   .header-sub { font-size: 10px; color: rgba(255,255,255,0.5); font-weight: 400; letter-spacing: 1.4px; text-transform: uppercase; }
-  .header-right { margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; }
+  .header-right { margin-left: auto; font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; display:flex; align-items:center; gap:14px; }
+  .help-btn { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); border-radius:20px; color:white; font-size:12px; font-weight:500; font-family:'DM Sans',sans-serif; padding:5px 12px; cursor:pointer; display:flex; align-items:center; gap:5px; transition:all 0.15s; }
+  .help-btn:hover { background:rgba(255,255,255,0.22); }
+
+  /* HELP MODAL */
+  .help-overlay { position:fixed; inset:0; background:rgba(18,26,42,0.65); display:flex; align-items:center; justify-content:center; z-index:300; backdrop-filter:blur(4px); padding:20px; }
+  .help-modal { background:white; border-radius:16px; max-width:620px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 24px 80px rgba(0,0,0,0.2); }
+  .help-header { background:${SG_BLUE}; border-radius:14px 14px 0 0; padding:24px 28px; display:flex; align-items:center; justify-content:space-between; }
+  .help-header h2 { color:white; font-size:20px; font-weight:600; }
+  .help-header button { background:rgba(255,255,255,0.15); border:none; color:white; border-radius:50%; width:32px; height:32px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
+  .help-header button:hover { background:rgba(255,255,255,0.25); }
+  .help-body { padding:28px; }
+  .help-steps { display:flex; flex-direction:column; gap:0; }
+  .help-step { display:flex; gap:18px; position:relative; }
+  .help-step:not(:last-child)::after { content:''; position:absolute; left:19px; top:44px; bottom:-8px; width:2px; background:#e2e8f0; }
+  .help-step-num { width:40px; height:40px; border-radius:50%; background:${SG_BLUE}; color:white; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px; }
+  .help-step-content { flex:1; padding-bottom:28px; }
+  .help-step-content h3 { font-size:15px; font-weight:600; color:#1a2332; margin-bottom:5px; }
+  .help-step-content p { font-size:13px; color:#7a8a9a; line-height:1.6; font-weight:300; }
+  .help-step-content .tip { font-size:12px; color:${SG_TEAL}; background:#e8f8f5; border-radius:4px; padding:6px 10px; margin-top:8px; font-weight:500; }
+  .help-divider { border:none; border-top:1px solid #edf0f5; margin:20px 0; }
+  .help-types { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+  .help-type { background:#f8f9fc; border-radius:8px; padding:12px 14px; }
+  .help-type h4 { font-size:13px; font-weight:600; color:${SG_BLUE}; margin-bottom:3px; }
+  .help-type p { font-size:12px; color:#7a8a9a; line-height:1.4; }
 
   .home { max-width: 860px; margin: 0 auto; padding: 72px 24px 60px; text-align: center; }
   .home h1 { font-size: 44px; font-weight: 600; color: ${SG_BLUE}; line-height: 1.1; margin-bottom: 12px; letter-spacing: -0.5px; }
@@ -655,6 +679,7 @@ export default function App() {
   const [customFiles,  setCustomFiles]  = useState([]);
   const [customErr,    setCustomErr]    = useState("");
   const [customGenerating, setCustomGenerating] = useState(false);
+  const [showHelp,     setShowHelp]     = useState(false);
 
   useEffect(() => {
     if (triggerRegen) {
@@ -1090,8 +1115,72 @@ FIELD MAPPING:
           <div className="header-title">Document Generator</div>
           <div className="header-sub">Solution Group · Internal Tool</div>
         </div>
-        <div className="header-right">solutionmgt.com</div>
+        <div className="header-right">
+          <span>solutionmgt.com</span>
+          <button className="help-btn" onClick={()=>setShowHelp(true)}>? Need help</button>
+        </div>
       </header>
+
+      {/* ── HELP MODAL ── */}
+      {showHelp && (
+        <div className="help-overlay" onClick={()=>setShowHelp(false)}>
+          <div className="help-modal" onClick={e=>e.stopPropagation()}>
+            <div className="help-header">
+              <h2>How it works</h2>
+              <button onClick={()=>setShowHelp(false)}>×</button>
+            </div>
+            <div className="help-body">
+              <div className="help-steps">
+
+                <div className="help-step">
+                  <div className="help-step-num">1</div>
+                  <div className="help-step-content">
+                    <h3>Choose your document type</h3>
+                    <p>Pick from the four options on the home screen based on what you need to produce. Not sure? If you're following up on a site visit, choose Assessment. If you're proposing ongoing services, choose Recurring Proposal. If it's a capital project with equipment and installation, choose Project Proposal.</p>
+                    <div className="help-types">
+                      <div className="help-type"><h4>🔍 Assessment</h4><p>Site findings and recommendations. No pricing included.</p></div>
+                      <div className="help-type"><h4>📄 Recurring Proposal</h4><p>Monthly O&M service contract with pricing.</p></div>
+                      <div className="help-type"><h4>🏗️ Project Proposal</h4><p>Capital project with scope, schedule, and itemized pricing.</p></div>
+                      <div className="help-type"><h4>✏️ Custom</h4><p>Anything else — freeform, no required fields.</p></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="help-step">
+                  <div className="help-step-num">2</div>
+                  <div className="help-step-content">
+                    <h3>Upload your files or paste notes</h3>
+                    <p>Drop in any relevant documents — an existing proposal, project tracker, spreadsheet, email thread, or site visit notes. You can upload multiple files at once. The more context you provide, the better the output.</p>
+                    <div className="tip">💡 Even a rough draft or a pasted email thread is enough to get started. Claude will figure out what's relevant.</div>
+                  </div>
+                </div>
+
+                <div className="help-step">
+                  <div className="help-step-num">3</div>
+                  <div className="help-step-content">
+                    <h3>Click "Parse & Build Proposal Form"</h3>
+                    <p>Claude reads everything you uploaded and automatically fills in the form fields — client name, deal amount, contact info, project details, and more. Review the pre-filled fields and correct anything that looks off. Required fields are marked with a red asterisk.</p>
+                    <div className="tip">💡 If a field didn't auto-fill, just type it in manually. The more fields you complete, the richer the document.</div>
+                  </div>
+                </div>
+
+                <div className="help-step">
+                  <div className="help-step-num">4</div>
+                  <div className="help-step-content">
+                    <h3>Generate & Download</h3>
+                    <p>Hit the Generate & Download button at the bottom. Claude writes the full document and it downloads to your device as a branded Word file. A deal is automatically created in HubSpot with the relevant fields populated.</p>
+                    <div className="tip">💡 Not happy with the output? Use the revision box that appears after download to make targeted changes — "shorten the engineering scope" or "update the total to $380,000". For bigger changes, hit Start Over.</div>
+                  </div>
+                </div>
+
+              </div>
+
+              <hr className="help-divider" />
+              <p style={{fontSize:12,color:"#9aa5b4",textAlign:"center"}}>Questions or feedback? Reach out to Chase Cochran.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── HOME ── */}
       {page==="home" && (
