@@ -120,7 +120,7 @@ function coverPage(cfg) {
     ...(hasFullClientContact ? [new Paragraph({ spacing: sp(0, 160), children: [new TextRun({ text: `${c.site_contact}${c.site_contact_title ? ', ' + c.site_contact_title : ''}`, size: 22, color: GRAY, font: 'Calibri' })] })] : []),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: 'Prepared by:', bold: true, size: 20, color: GRAY, font: 'Calibri' })] }),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: sgLine, size: 22, color: GRAY, font: 'Calibri' })] }),
-    new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: `Date: ${cfg.proposal_date || cfg.date || new Date().toLocaleDateString()}`, size: 22, color: GRAY, font: 'Calibri' })] }),
+    new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: `Date: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}`, size: 22, color: GRAY, font: 'Calibri' })] }),
     new Paragraph({ spacing: sp(0, 40), children: [new TextRun({ text: 'Valid for 30 days from date above.', size: 18, italic: true, color: '888888', font: 'Calibri' })] }),
     pb()
   ];
@@ -552,15 +552,12 @@ CRITICAL RULES:
 - Cover page: use what's available; minimal is fine; never leave blanks
 - Pricing MUST be rolled up into max 4 categories — never individual line items
 - Engineering scope = 2-3 short paragraphs max, what the system accomplishes and why, NOT a parts list. Concise and executive-readable.
-- Timeline: ONLY include if user explicitly provided specific milestone dates or a schedule. A single start date does NOT warrant a timeline table — put it in assumptions/next steps instead. Return timeline as null if no meaningful schedule provided.
+- Timeline: ONLY include if the uploaded documents explicitly contain a schedule with specific timeframes (e.g. "Weeks 1-4", "Phase 1: 3 weeks", "Start: March 1"). Do NOT infer, estimate, or generate a timeline from project scope. Do NOT include a timeline just because there is a start date or project length. If no explicit schedule with phases or week ranges exists in the source material, return timeline as null or an empty array.
 - Contact names: only include if you have both first AND last name. Single names (e.g. "Gram") must be omitted entirely from contacts.
 - Never use em dashes anywhere. Use commas or periods instead.
 
 FORM DATA: ${JSON.stringify(formData)}
-${fileText ? `FILE CONTENT:
-${fileText}` : ''}
-
-Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}. Use this as the proposal date if none is specified.
+${fileText ? `FILE CONTENT:\n${fileText}` : ''}
 
 Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}. Use this as the proposal date if none is specified.
 
@@ -643,6 +640,57 @@ Rules:
       if (docType === 'proposal')        prompt = proposalConfigPrompt(formData, fileText);
       else if (docType === 'assessment') prompt = assessmentConfigPrompt(formData, fileText);
       else if (docType === 'project')    prompt = projectConfigPrompt(formData, fileText);
+      else if (docType === 'custom') {
+        // Custom: skip config extraction entirely — call Claude directly and build a simple doc
+        const customInstruction = formData.customPrompt || formData.additionalInstructions || 'Generate a professional document.';
+        const customRaw = await callClaude([{ role: 'user', content:
+          `You are a document writer for Solution Group, an environmental management and water treatment company.
+
+${fileText ? `ATTACHED FILES:\n${fileText}\n\n` : ''}USER INSTRUCTION:\n${customInstruction}
+
+Write a professional, well-structured document based on the instruction above.
+- Use ## for section headers
+- Use clear, professional language
+- Do not use em dashes (-- or —) anywhere
+- Format for a business audience
+- Solution Group address: 6239 S. East Street Suite F, Indianapolis IN 46227 | (800) 465-8200 | solutionmgt.com
+
+Return ONLY the document content — no preamble, no explanation.`
+        }], 4096);
+
+        // Build a simple branded doc from the raw text
+        const paragraphs = [];
+        for (const line of customRaw.split('\n')) {
+          const trimmed = line.replace(/\u2014/g, ',').replace(/\u2013/g, '-').trim();
+          if (!trimmed) { paragraphs.push(new Paragraph({ spacing: sp(0,80), children: [] })); continue; }
+          if (trimmed.startsWith('## ')) {
+            paragraphs.push(blueBar(trimmed.replace(/^##\s+/, '')));
+          } else if (trimmed.startsWith('# ')) {
+            paragraphs.push(new Paragraph({ spacing: sp(200,120), children: [new TextRun({ text: trimmed.replace(/^#\s+/, ''), bold: true, size: 32, color: BLUE, font: 'Calibri' })] }));
+          } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+            paragraphs.push(new Paragraph({ spacing: sp(0,80), numbering: { reference: 'bullets', level: 0 }, children: [new TextRun({ text: trimmed.replace(/^[-•]\s+/, ''), size: 22, color: GRAY, font: 'Calibri' })] }));
+          } else {
+            paragraphs.push(body(trimmed));
+          }
+        }
+
+        const customDoc = new Document({
+          numbering: { config: [{ reference: 'bullets', levels: [{ level: 0, format: LevelFormat.BULLET, text: '\u2022', alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 540, hanging: 360 } } } }] }] },
+          sections: [{ properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, right: 1080, bottom: 900, left: 1080 } } },
+            headers: { default: makeHeader('Solution Group', 'Custom Document') },
+            footers: { default: makeFooter() },
+            children: paragraphs,
+          }]
+        });
+
+        const customBuffer = await Packer.toBuffer(customDoc);
+        const now = new Date();
+        const dateShort = `${now.getMonth()+1}.${String(now.getDate()).padStart(2,'0')}`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="SG Custom Document - ${dateShort}.docx"`);
+        res.status(200).send(customBuffer);
+        return;
+      }
       else throw new Error(`Unknown docType: ${docType}`);
 
       const raw = await callClaude([{ role: 'user', content: prompt }], 4096);
@@ -655,6 +703,28 @@ Rules:
     // On revision: trust Claude's output (user may have asked to add/remove signature via revision)
     if (!previousConfig) {
       cfg.include_signature = formData.includeSignature === 'yes';
+    }
+
+    // Strip em dashes from all string values in cfg — replace with comma or hyphen
+    const stripEmDashes = obj => {
+      if (typeof obj === 'string') return obj.replace(/\u2014/g, ',').replace(/\u2013/g, '-');
+      if (Array.isArray(obj)) return obj.map(stripEmDashes);
+      if (obj && typeof obj === 'object') {
+        const out = {};
+        for (const [k,v] of Object.entries(obj)) out[k] = stripEmDashes(v);
+        return out;
+      }
+      return obj;
+    };
+    cfg = stripEmDashes(cfg);
+
+    // Hard timeline gate — only keep timeline if entries have actual timeframe values
+    // (e.g. "Weeks 1-4", "Phase 1", specific dates). Wipe it otherwise.
+    if (cfg.timeline && Array.isArray(cfg.timeline)) {
+      const hasRealTimeframes = cfg.timeline.some(row =>
+        row.timeframe && /(\d|week|phase|month|day|q[1-4])/i.test(row.timeframe)
+      );
+      if (!hasRealTimeframes) cfg.timeline = [];
     }
 
     // 3. Build the docx
