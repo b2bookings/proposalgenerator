@@ -663,7 +663,8 @@ export default function App() {
   const [docType,     setDocType]     = useState(null);
   const [formData,    setFormData]    = useState(() => {
     const saved = localStorage.getItem("sg_generated_by");
-    return saved ? { generatedBy: saved } : {};
+    // Only restore if user explicitly saved their name — empty string means they need to fill it in
+    return saved && saved.trim() && saved !== "Proposal Generator" ? { generatedBy: saved } : {};
   });
   const [aiKeys,      setAiKeys]      = useState(new Set());
   const [pastedText,  setPastedText]  = useState("");
@@ -1097,6 +1098,7 @@ FIELD MAPPING:
             projectLengthDays:    formData.projectLengthDays,
             contractLengthDays:   formData.contractLengthDays,
             existingDealId:       lastDealId,
+            generatedBy:          formData.generatedBy,
           }),
         }).then(r => r.json()).then(data => {
           if (data?.dealId) {
@@ -1619,6 +1621,7 @@ FIELD MAPPING:
                                   projectLengthDays:    updated.projectLengthDays,
                                   contractLengthDays:   updated.contractLengthDays,
                                   existingDealId:       lastDealId,
+                                  generatedBy:          updated.generatedBy,
                                 }),
                               }).then(r => r.json()).then(data => {
                                 if (data?.dealId) setLastDealId(data.dealId);
