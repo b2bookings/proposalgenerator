@@ -405,6 +405,7 @@ const EMAILJS_SERVICE  = 'service_71nz8kc';
 const EMAILJS_TEMPLATE = 'template_ex35j5g';
 const EMAILJS_KEY      = 'uITaQIb_MQzLk8dQ7';
 const EMAIL_DELAY_MS   = 10 * 60 * 1000; // 10 minutes
+const PARSE_STEPS = ["Reading uploaded files","Extracting data with Claude","Populating form fields"];
 const GEN_STEPS   = ["Extracting file content","Sending to server","Building branded document","Preparing download"];
 
 // ── helpers ───────────────────────────────────────────────────────────────────
