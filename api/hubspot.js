@@ -140,21 +140,28 @@ module.exports = async function (req, res) {
       return String(d.getTime());
     };
 
+    // Default close date to 3 months from today if not specified
+    const effectiveCloseDate = closeDate || (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 3);
+      return d.toISOString().split('T')[0];
+    })();
+
     const dealProps = {
       dealname:  dealName,
       pipeline:  pipelineConfig.pipelineId,
       dealstage: pipelineConfig.stageId,
-      ...(amountNum        ? { amount: String(amountNum) }                        : {}),
-      ...(closeDate        ? { closedate: String(new Date(closeDate).getTime()) } : {}),
+      ...(amountNum        ? { amount: String(amountNum) }                                    : {}),
+      closedate: String(new Date(effectiveCloseDate).getTime()),
       ...(closeProbability ? { hs_deal_stage_probability: String(Number(closeProbability) / 100) } : {}),
       ...(parseCost(managementCost) ? { management_cost: String(parseCost(managementCost)) } : {}),
       ...(parseCost(equipmentCost)  ? { equipment_cost:  String(parseCost(equipmentCost))  } : {}),
       ...(parseCost(laborCost)      ? { labor_cost:      String(parseCost(laborCost))      } : {}),
       ...(parseCost(technologyCost) ? { technology_cost: String(parseCost(technologyCost)) } : {}),
-      ...(pipeline === 'Project' && projectLengthDays && closeDate
-        ? { estimated_project_end_date: addDays(closeDate, projectLengthDays) } : {}),
-      ...(pipeline === 'Recurring' && contractLengthDays && closeDate
-        ? { estimated_contract_end_date: addDays(closeDate, contractLengthDays) } : {}),
+      ...(pipeline === 'Project' && projectLengthDays && effectiveCloseDate
+        ? { estimated_project_end_date: addDays(effectiveCloseDate, projectLengthDays) } : {}),
+      ...(pipeline === 'Recurring' && contractLengthDays && effectiveCloseDate
+        ? { estimated_contract_end_date: addDays(effectiveCloseDate, contractLengthDays) } : {}),
     };
 
     let dealId;
@@ -169,7 +176,11 @@ module.exports = async function (req, res) {
     } else {
       console.log('Creating new deal:', dealName);
       // Owner = Primary SG Contact on the deal
-      const ownerId = await findOwnerByEmail(sgContactEmail);
+      // Falls back to default owner (Chase Cochran) if lookup fails due to scope limitations
+      const DEFAULT_OWNER_ID = '163848624';
+      let ownerId = null;
+      try { ownerId = await findOwnerByEmail(sgContactEmail); } catch(e) {}
+      if (!ownerId) ownerId = DEFAULT_OWNER_ID;
       if (ownerId) dealProps.hubspot_owner_id = ownerId;
 
       const deal = await hubspotRequest('POST', '/crm/v3/objects/deals', { properties: dealProps });
