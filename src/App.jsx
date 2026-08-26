@@ -448,7 +448,7 @@ function buildParsePrompt(docType, pastedText, fileNames) {
   const allKeys = [
     ...PIPELINE_FIELDS,
     ...(docType==="assessment" ? ASSESSMENT_FIELDS : docType==="proposal" ? PROPOSAL_FIELDS : docType==="project" ? PROJECT_PROPOSAL_FIELDS : OTHER_FIELDS),
-  ].map(f => f.key);
+  ].map(f => f.key).filter(k => k !== 'generatedBy' && k !== 'pipeline');
   return `You are a data extraction assistant for Solution Group. Extract fields from the provided files/text.
 ${pastedText ? `\nPASTED TEXT:\n${pastedText}\n` : ""}
 ${fileNames.length ? `Files provided: ${fileNames.join(", ")}` : ""}
@@ -822,7 +822,8 @@ export default function App() {
         ...ASSESSMENT_FIELDS,
         ...PROPOSAL_FIELDS,
         ...PROJECT_PROPOSAL_FIELDS,
-      ].map(f => f.key).filter((k,i,a) => a.indexOf(k) === i); // dedupe
+      ].map(f => f.key).filter((k,i,a) => a.indexOf(k) === i) // dedupe
+       .filter(k => k !== 'generatedBy' && k !== 'pipeline'); // never parse these from docs
 
       const prompt = `You are a data extraction assistant for Solution Group. Extract fields from the provided files/text and determine what type of document this is.
 
@@ -875,7 +876,9 @@ FIELD MAPPING:
       const filled = new Set();
       const merged = {};
       Object.entries(extracted).forEach(([k,v]) => {
-        if (v && String(v).trim() && k !== "suggestedDocType") {
+        // Never overwrite generatedBy or pipeline from parsed doc content
+        if (k === 'generatedBy' || k === 'pipeline' || k === 'suggestedDocType') return;
+        if (v && String(v).trim()) {
           merged[k] = String(v).trim();
           filled.add(k);
         }
@@ -982,7 +985,7 @@ FIELD MAPPING:
       setParseStep(2);
       const filled = new Set();
       const merged = {...formData};
-      Object.entries(extracted).forEach(([k,v])=>{ if(v&&String(v).trim()){merged[k]=String(v).trim();filled.add(k);} });
+      Object.entries(extracted).forEach(([k,v])=>{ if(k==='generatedBy'||k==='pipeline') return; if(v&&String(v).trim()){merged[k]=String(v).trim();filled.add(k);} });
       setFormData(merged); setAiKeys(filled); setParsed(true);
     } catch(e) {
       if (e.message === "CORS_BLOCKED") {
