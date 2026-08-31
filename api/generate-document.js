@@ -39,7 +39,11 @@ const brd = { top: cb, bottom: cb, left: cb, right: cb };
 const nb  = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const noBorders = { top: nb, bottom: nb, left: nb, right: nb };
 const mg  = { top: 80, bottom: 80, left: 120, right: 120 };
-const fmt = n => n != null && n !== 0 ? '$' + Number(n).toLocaleString('en-US') : '[TBD]';
+const fmt = (n, cfg) => {
+  if (n == null || n === 0) return '[TBD]';
+  const sym = cfg?.currency_symbol || '$';
+  return sym + Number(n).toLocaleString('en-US');
+};
 const annual = n => n != null ? n * 12 : null;
 
 function blueBar(text, size = 16) {
@@ -148,9 +152,9 @@ function buildProposal(cfg) {
       new TableCell({ borders: brd, width: { size: 5400, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
         children: [new Paragraph({ children: [new TextRun({ text: li.description || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
       new TableCell({ borders: brd, width: { size: 1980, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(li.monthly), size: 20, color: GRAY, font: 'Calibri' })] })] }),
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(li.monthly, cfg), size: 20, color: GRAY, font: 'Calibri' })] })] }),
       new TableCell({ borders: brd, width: { size: 1980, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(annual(li.monthly)), size: 20, color: GRAY, font: 'Calibri' })] })] }),
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(annual(li.monthly), cfg), size: 20, color: GRAY, font: 'Calibri' })] })] }),
     ]
   }));
 
@@ -159,9 +163,9 @@ function buildProposal(cfg) {
       new TableCell({ borders: brd, width: { size: 5400, type: WidthType.DXA }, shading: { fill: LBLUE, type: ShadingType.CLEAR }, margins: mg,
         children: [new Paragraph({ children: [new TextRun({ text: 'Total Monthly Service Fee', bold: true, size: 22, color: BLUE, font: 'Calibri' })] })] }),
       new TableCell({ borders: brd, width: { size: 1980, type: WidthType.DXA }, shading: { fill: LBLUE, type: ShadingType.CLEAR }, margins: mg,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.monthly_total), bold: true, size: 22, color: BLUE, font: 'Calibri' })] })] }),
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.monthly_total, cfg), bold: true, size: 22, color: BLUE, font: 'Calibri' })] })] }),
       new TableCell({ borders: brd, width: { size: 1980, type: WidthType.DXA }, shading: { fill: LBLUE, type: ShadingType.CLEAR }, margins: mg,
-        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.annual_total || annual(pricing.monthly_total)), bold: true, size: 22, color: BLUE, font: 'Calibri' })] })] }),
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.annual_total || annual(pricing.monthly_total), cfg), bold: true, size: 22, color: BLUE, font: 'Calibri' })] })] }),
     ]
   });
 
@@ -205,16 +209,10 @@ function buildAssessment(cfg) {
   const regs = cfg.regulatory || {};
   const systems = cfg.systems || [];
   const sm = cfg.staffing_model || {};
-  const mon = cfg.monitoring || {};
-  const recs = cfg.recommendations || {};
 
   function hdrCell(text, width) {
     return new TableCell({ borders: brd, width: { size: width, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
       children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 20, color: WHITE, font: 'Calibri' })] })] });
-  }
-  function bodyCell(text, width, fill = WHITE) {
-    return new TableCell({ borders: brd, width: { size: width, type: WidthType.DXA }, shading: { fill, type: ShadingType.CLEAR }, margins: mg,
-      children: [new Paragraph({ children: [new TextRun({ text: text || '—', size: 20, color: GRAY, font: 'Calibri' })] })] });
   }
 
   const allRisks = systems.flatMap(sys => (sys.risks || []).map(r => ({
@@ -333,14 +331,14 @@ function buildProject(cfg) {
     new TableCell({ borders: brd, width: { size: 7200, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
       children: [new Paragraph({ children: [new TextRun({ text: cat.name || '', size: 20, color: GRAY, font: 'Calibri' })] })] }),
     new TableCell({ borders: brd, width: { size: 2160, type: WidthType.DXA }, shading: { fill: i % 2 === 0 ? WHITE : LGRAY, type: ShadingType.CLEAR }, margins: mg,
-      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(cat.amount), size: 20, color: GRAY, font: 'Calibri' })] })] }),
+      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(cat.amount, cfg), size: 20, color: GRAY, font: 'Calibri' })] })] }),
   ]}));
 
   const totalRow = new TableRow({ children: [
     new TableCell({ borders: brd, width: { size: 7200, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
       children: [new Paragraph({ children: [new TextRun({ text: 'Total Project Investment', bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
     new TableCell({ borders: brd, width: { size: 2160, type: WidthType.DXA }, shading: { fill: BLUE, type: ShadingType.CLEAR }, margins: mg,
-      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.total), bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
+      children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: fmt(pricing.total, cfg), bold: true, size: 22, color: WHITE, font: 'Calibri' })] })] }),
   ]});
 
   // Timeline table — Timeframe | Activity
@@ -612,7 +610,7 @@ module.exports = async function (req, res) {
 
     if (previousConfig && revisionInstructions) {
       // ── REVISION MODE: edit the previous config surgically ──
-      const revisionPrompt = `You are editing an existing Solution Group ${docType} proposal config. Make ONLY the specific changes requested. Return the complete updated JSON — every field must be present, unchanged fields must be copied exactly.
+      const revisionPrompt = `You are a senior proposal writer and editor at Solution Group. You are making specific revisions to an existing proposal config JSON.
 
 Today's date is: ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}
 
@@ -622,9 +620,12 @@ ${JSON.stringify(previousConfig, null, 2)}
 REVISION INSTRUCTIONS:
 ${revisionInstructions}
 
-Rules:
-- Change ONLY what the revision instructions specify
-- Copy all other fields verbatim — do not rephrase, reorder, or improve anything else
+Apply these instructions with full reasoning ability:
+- If asked to convert currency, use your knowledge of current exchange rates, do the actual math on every monetary value, and add a pricing_note showing the rate used
+- If asked to change tone or rewrite sections, use genuine editorial judgment
+- If asked to add a timeline, generate a realistic one based on the project scope
+- If asked to update a date, use today's date unless a specific date is given
+- Make ONLY the changes requested — copy all other fields verbatim
 - If asked to add a signature block, set "include_signature": true
 - If asked to remove a signature block, set "include_signature": false
 - Never use em dashes
@@ -718,6 +719,48 @@ Return ONLY the document content — no preamble, no explanation.`
     };
     cfg = stripEmDashes(cfg);
 
+    // If additionalInstructions exist, run a second Claude call to apply them to the content
+    // Skip in revision mode (revisionInstructions handles that path) and for custom docs
+    const instructions = (formData?.additionalInstructions || '').trim();
+    if (instructions && !instructions.startsWith('REVISION REQUEST') && !previousConfig) {
+      const applyPrompt = `You are a senior proposal writer and editor at Solution Group, an environmental management and water treatment company. You are editing a proposal config JSON to apply specific user instructions.
+
+You have full reasoning ability — use your knowledge to fulfill the request intelligently:
+- If asked to convert currency, use your knowledge of current exchange rates and do the actual math on every monetary value
+- If asked to change tone, rewrite sections with genuine editorial judgment
+- If asked to shorten or expand, make real decisions about what to cut or add
+- If asked to add a timeline, generate a realistic one based on the project scope in the config
+- If asked to restructure or reorganize, do so with professional judgment
+- If something is ambiguous, make the most reasonable interpretation and apply it
+
+USER INSTRUCTIONS:
+${instructions}
+
+CURRENT CONFIG:
+${JSON.stringify(cfg, null, 2)}
+
+RULES:
+- Return the complete updated config — every field must be present
+- Apply all instructions thoroughly and intelligently
+- Never use em dashes anywhere in text
+- Never add placeholder text like [TBD] or [To be confirmed]
+- If changing currency: update ALL monetary values, add "currency_symbol" field with the correct symbol, and show the exchange rate used in a pricing_note
+- Preserve the overall structure — same keys, same nesting
+- Return ONLY valid JSON, no markdown, no preamble, no explanation`;
+
+      const instrRaw = await callClaude([{ role: 'user', content: applyPrompt }], 4096);
+      const instrMatch = instrRaw.match(/\{[\s\S]*\}/);
+      if (instrMatch) {
+        try {
+          const updatedCfg = JSON.parse(instrMatch[0]);
+          cfg = { ...updatedCfg, include_signature: cfg.include_signature };
+          cfg = stripEmDashes(cfg);
+        } catch(e) {
+          console.warn('Additional instructions apply failed, using original config:', e.message);
+        }
+      }
+    }
+
     // Hard timeline gate — only keep timeline if entries have actual timeframe values
     // (e.g. "Weeks 1-4", "Phase 1", specific dates). Wipe it otherwise.
     if (cfg.timeline && Array.isArray(cfg.timeline)) {
@@ -735,10 +778,14 @@ Return ONLY the document content — no preamble, no explanation.`
 
     const buffer = await Packer.toBuffer(doc);
 
-    const client = (cfg.client?.short_name || cfg.client?.name || 'Client').replace(/\s+/g, '_');
-    const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const label   = docType === 'proposal' ? 'Proposal' : docType === 'assessment' ? 'Assessment' : 'Project_Proposal';
-    const filename = `${client}_${label}_${dateStr}.docx`;
+    const now = new Date();
+    const dateShort = `${now.getMonth()+1}.${String(now.getDate()).padStart(2,'0')}`;
+    const clientName = (cfg.client?.short_name || cfg.client?.name || 'Client').trim();
+    const projectDesc = (cfg.proposal_title || '')
+      .replace(/[-\u2013\u2014]/g, ' ')
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .split(/\s+/).filter(Boolean).slice(0, 3).join(' ');
+    const filename = `${clientName}${projectDesc ? ' ' + projectDesc : ''} - ${dateShort}.docx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
