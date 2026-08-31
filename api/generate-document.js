@@ -190,6 +190,13 @@ function buildProposal(cfg) {
     ...(cfg.next_steps || []).map(bullet),
     ...spacer(1),
     body('We look forward to moving forward on your timeline.'),
+    // Render any additional sections Claude added based on user instructions
+    ...Object.entries(cfg.additional_sections || {}).flatMap(([title, content]) => [
+      ...spacer(2),
+      blueBar(title),
+      ...spacer(1),
+      ...(Array.isArray(content) ? content.map(bullet) : [body(String(content || ''))]),
+    ]),
   ];
 
   return new Document({
@@ -423,6 +430,13 @@ function buildProject(cfg) {
     ...(cfg.next_steps || []).map(bullet),
     ...spacer(1),
     body('We look forward to the conversation and are ready to move forward on your timeline.'),
+    // Render any additional sections Claude added based on user instructions
+    ...Object.entries(cfg.additional_sections || {}).flatMap(([title, content]) => [
+      ...spacer(2),
+      blueBar(title),
+      ...spacer(1),
+      ...(Array.isArray(content) ? content.map(bullet) : [body(String(content || ''))]),
+    ]),
     ...sigBlock,
   ];
 
@@ -462,13 +476,19 @@ function callClaude(messages, maxTokens = 4096) {
 
 // ── Config extraction prompts ─────────────────────────────────────────────────
 function proposalConfigPrompt(formData, fileText) {
-  return `You are a Solution Group proposal data extractor. Given this form data and any file content, return a JSON config object for building a branded reoccurring service proposal.
-
-CRITICAL RULES:
+  const userInstructions = formData.additionalInstructions ? `
+MANDATORY USER INSTRUCTIONS — apply these before anything else. These override defaults:
+${formData.additionalInstructions}
+` : '';
+  return `You are a senior Solution Group proposal writer. Using the provided data, produce a complete JSON config for a branded recurring service proposal.
+${userInstructions}
+RULES:
 - Always write "Solution Group" in full — never abbreviate as "SG"
-- Never use [To be confirmed] or any placeholder text — use only what is available; omit fields you cannot fill
-- Cover page: use only information available; a minimal cover page is fine
-- Never expose the 10% markup as a line item — it is already baked into pricing
+- Never use [To be confirmed] or placeholders — omit fields you cannot fill
+- Never expose markup as a line item — bake it into pricing
+- Apply ALL user instructions above precisely and completely before returning the config
+- If instructions ask for a new section, add it as a key in the JSON and populate it fully
+- If instructions ask for currency change, convert all amounts and set currency_symbol
 
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:
@@ -495,14 +515,23 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
   "timeline": "string or null — timeline description if provided",
   "include_signature": true or false,
   "assumptions_exclusions": ["bullet string"],
-  "next_steps": ["bullet string"]
+  "next_steps": ["bullet string"],
+  "additional_sections": { "Section Title": "paragraph text or array of bullet strings" }
 }
 
-Extract everything available. For client/SG contacts: use what you have, leave fields as empty string if unknown.`;
+If the user instructions ask for a new section, add it to additional_sections. Extract everything available. For client/SG contacts: use what you have, leave fields as empty string if unknown.`;
 }
 
 function assessmentConfigPrompt(formData, fileText) {
-  return `You are a Solution Group assessment data extractor. Given this form data and any file content, return a JSON config for building a branded site assessment report.
+  const userInstructions = formData.additionalInstructions ? `
+MANDATORY USER INSTRUCTIONS — apply these before anything else:
+${formData.additionalInstructions}
+` : '';
+  return `You are a senior Solution Group assessment writer. Using the provided data, produce a complete JSON config for a branded site assessment report.
+${userInstructions}
+RULES:
+- Always write "Solution Group" in full — never abbreviate as "SG"
+- Apply ALL user instructions above precisely before returning the config
 
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:\n${fileText}` : ''}
@@ -531,7 +560,13 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
 }
 
 function projectConfigPrompt(formData, fileText) {
-  return `You are a Solution Group project proposal data extractor. Given this form data and any file content, return a JSON config for building a branded capital project proposal modeled after this structure:
+  const userInstructions = formData.additionalInstructions ? `
+MANDATORY USER INSTRUCTIONS — apply these before anything else. These are requirements, not suggestions:
+${formData.additionalInstructions}
+` : '';
+  return `You are a senior Solution Group proposal writer. Using the provided data, produce a complete JSON config for a branded capital project proposal.
+${userInstructions}
+DOCUMENT STRUCTURE (follow exactly unless user instructions say otherwise):
 
 SECTION STRUCTURE (follow exactly):
 1. Proposal Introduction — 1-2 short paragraphs, NO equipment lists, reference assessment doc for detail
@@ -584,11 +619,13 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
   "timeline": [{ "timeframe": "Weeks 1-4", "activity": "Parts procurement" }] or null,
   "include_signature": true or false,
   "assumptions_exclusions": ["bullet string"],
-  "next_steps": ["bullet string"]
+  "next_steps": ["bullet string"],
+  "additional_sections": { "Section Title": "paragraph text or array of bullet strings" }
 }
 
-PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.
-${formData.additionalInstructions ? `\nUSER INSTRUCTIONS (follow precisely): ${formData.additionalInstructions}` : ''}`;
+If the user instructions ask for a new section, add it to additional_sections with a clear title and the requested content.
+
+PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.`;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -719,47 +756,7 @@ Return ONLY the document content — no preamble, no explanation.`
     };
     cfg = stripEmDashes(cfg);
 
-    // If additionalInstructions exist, run a second Claude call to apply them to the content
-    // Skip in revision mode (revisionInstructions handles that path) and for custom docs
-    const instructions = (formData?.additionalInstructions || '').trim();
-    if (instructions && !instructions.startsWith('REVISION REQUEST') && !previousConfig) {
-      const applyPrompt = `You are a senior proposal writer and editor at Solution Group, an environmental management and water treatment company. You are editing a proposal config JSON to apply specific user instructions.
-
-You have full reasoning ability — use your knowledge to fulfill the request intelligently:
-- If asked to convert currency, use your knowledge of current exchange rates and do the actual math on every monetary value
-- If asked to change tone, rewrite sections with genuine editorial judgment
-- If asked to shorten or expand, make real decisions about what to cut or add
-- If asked to add a timeline, generate a realistic one based on the project scope in the config
-- If asked to restructure or reorganize, do so with professional judgment
-- If something is ambiguous, make the most reasonable interpretation and apply it
-
-USER INSTRUCTIONS:
-${instructions}
-
-CURRENT CONFIG:
-${JSON.stringify(cfg, null, 2)}
-
-RULES:
-- Return the complete updated config — every field must be present
-- Apply all instructions thoroughly and intelligently
-- Never use em dashes anywhere in text
-- Never add placeholder text like [TBD] or [To be confirmed]
-- If changing currency: update ALL monetary values, add "currency_symbol" field with the correct symbol, and show the exchange rate used in a pricing_note
-- Preserve the overall structure — same keys, same nesting
-- Return ONLY valid JSON, no markdown, no preamble, no explanation`;
-
-      const instrRaw = await callClaude([{ role: 'user', content: applyPrompt }], 4096);
-      const instrMatch = instrRaw.match(/\{[\s\S]*\}/);
-      if (instrMatch) {
-        try {
-          const updatedCfg = JSON.parse(instrMatch[0]);
-          cfg = { ...updatedCfg, include_signature: cfg.include_signature };
-          cfg = stripEmDashes(cfg);
-        } catch(e) {
-          console.warn('Additional instructions apply failed, using original config:', e.message);
-        }
-      }
-    }
+    // Additional instructions are now applied in the config extraction prompt directly
 
     // Hard timeline gate — only keep timeline if entries have actual timeframe values
     // (e.g. "Weeks 1-4", "Phase 1", specific dates). Wipe it otherwise.
