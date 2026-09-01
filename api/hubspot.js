@@ -120,7 +120,7 @@ module.exports = async function (req, res) {
       docType, clientName, clientShortName, projectTitle,
       pipeline, dealAmount, closeDate, closeProbability,
       sgContactName, sgContactEmail, customerContactName, customerContactEmail,
-      existingDealId, generatedBy,
+      existingDealId, generatedBy, dealSource,
       managementCost, equipmentCost, laborCost, technologyCost,
       projectLengthDays, contractLengthDays,
     } = body;
@@ -158,6 +158,7 @@ module.exports = async function (req, res) {
       ...(parseCost(equipmentCost)  ? { equipment_cost:  String(parseCost(equipmentCost))  } : {}),
       ...(parseCost(laborCost)      ? { labor_cost:      String(parseCost(laborCost))      } : {}),
       ...(parseCost(technologyCost) ? { technology_cost: String(parseCost(technologyCost)) } : {}),
+      ...(dealSource ? { deal_source: dealSource } : {}),
       ...(pipeline === 'Project' && projectLengthDays && effectiveCloseDate
         ? { estimated_project_end_date: addDays(effectiveCloseDate, projectLengthDays) } : {}),
       ...(pipeline === 'Recurring' && contractLengthDays && effectiveCloseDate
