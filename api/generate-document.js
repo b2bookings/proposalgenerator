@@ -32,6 +32,50 @@ const WHITE = 'FFFFFF';
 const BGRAY = 'CCCCCC';
 const LGRAY = 'F2F2F2';
 
+// ── Optional section content library ─────────────────────────────────────────
+// CLIENT_NAME is a placeholder replaced with the actual client name at render time
+const OPTIONAL_SECTION_CONTENT = {
+  sg_academy: {
+    title: 'Solution Group Academy',
+    content: `A skilled, knowledgeable workforce is essential to sustainable wastewater operations. Solution Group's Education and Training program, anchored by the Solution Group Academy, provides a comprehensive curriculum spanning certification preparation, continuing education, workforce development, and hands-on technical training.
+
+Solution Group Academy is a proprietary training platform that delivers structured, industry-recognized curricula for wastewater operators at every level, from new hires to experienced professionals seeking advanced certification. Coursework covers biological treatment processes, chemistry, regulatory requirements, safety, and equipment operation.
+
+Licensed operators are required to maintain their certifications through ongoing continuing education. Solution Group Academy provides accredited continuing education units (CEUs) covering regulatory updates, emerging treatment technologies, and best management practices.
+
+All new wastewater personnel joining CLIENT_NAME facilities undergo a structured onboarding program developed in partnership with Solution Group. This includes facility-specific procedures, safety protocols, regulatory requirements, and equipment familiarization. Beyond classroom instruction, Solution Group provides practical, site-based technical training covering equipment operation and maintenance, process control, troubleshooting, and emergency response.`,
+  },
+
+  opticlear: {
+    title: 'OptiClear Remote Monitoring and Management',
+    content: `The OptiClear platform provides CLIENT_NAME with a comprehensive, real-time view of wastewater operations across all facilities. Accessible to authorized personnel at any level, from site managers to corporate leadership, OptiClear delivers role-based visibility into the data that matters most.
+
+The platform includes site-by-site real-time process data visualization, long-term historical data archiving for trend analysis and benchmarking, monthly and annual cost reporting by site and program-wide, and unit cost metrics for operational benchmarking. Compliance KPIs include permit limit tracking, exceedance alerts, and reporting status dashboards. Laboratory data integration provides analytical results, trend analysis, and QC monitoring.
+
+Remote access and control capabilities allow authorized Solution Group and CLIENT_NAME personnel to monitor systems and respond to conditions without requiring on-site presence. Automated alarm notification is delivered via email, SMS, and dashboard alerts. In the event of an alarm, Corrective Action Reports are automatically generated to ensure rapid documentation and response.`,
+  },
+
+  safety: {
+    title: 'Operational Safety Support',
+    content: `Safety is a non-negotiable value at Solution Group. Our Operational Safety Support program integrates structured auditing, training, near-miss management, and continuous improvement into CLIENT_NAME's day-to-day wastewater operations, building a durable safety culture at every facility.
+
+Solution Group conducts periodic safety audits at each CLIENT_NAME site, evaluating compliance with OSHA regulations, site-specific safety plans, lockout/tagout procedures, confined space entry protocols, personal protective equipment requirements, chemical handling practices, and emergency response preparedness. Audit findings are documented, prioritized, and tracked to closure.
+
+All site personnel receive training on applicable regulatory safety requirements, including OSHA Hazard Communication, confined space entry, respiratory protection, and emergency action plans. Training records are maintained in the OptiClear platform. Solution Group implements a proactive near-miss reporting and analysis program at each facility. Near-miss events are captured, investigated, and used to identify and correct systemic hazards before they result in injury or regulatory incident.
+
+In the event of a safety incident or environmental exceedance, Solution Group conducts a structured root cause analysis using proven investigation methodologies. Corrective and preventive actions are identified, assigned, tracked, and verified through the OptiClear platform. Solution Group also implements and sustains the 5S workplace organization methodology at each CLIENT_NAME wastewater facility, delivering tangible operational and safety benefits through a well-organized, visually managed treatment environment.`,
+  },
+
+  kpi_reporting: {
+    title: 'KPI Reporting and Executive Dashboard',
+    content: `Solution Group provides CLIENT_NAME leadership with a standardized, automated operating view through the Site Executive Dashboard, delivered on a monthly cadence. This single consistent view spans safety, people, financials, compliance, and operations across every site, enabling leadership to understand performance at a glance without manual data assembly.
+
+The Executive KPI Framework tracks five core categories: Safety (recordables, near misses, open actions), People (headcount, open roles, overtime), Financial (revenue, program cost, EBITDA), Operations (water volume, efficiency, reliability), and Compliance (exceedances, permit metrics). Each KPI has a named owner and a defined reporting cadence.
+
+The dashboard surfaces Executive Attention Items, rules-based exceptions that flag items requiring leadership action, so that nothing critical is missed across a multi-site portfolio. Cost per treated gallon provides a consistent benchmarking metric across facilities and periods. Site Financials breakdowns show cost mix by category, enabling program-wide visibility into where dollars are being spent and where variances exist relative to target.`,
+  },
+};
+
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 const sp  = (before = 0, after = 120) => ({ before, after });
 const cb  = { style: BorderStyle.SINGLE, size: 1, color: BGRAY };
@@ -190,13 +234,17 @@ function buildProposal(cfg) {
     ...(cfg.next_steps || []).map(bullet),
     ...spacer(1),
     body('We look forward to moving forward on your timeline.'),
-    // Render any additional sections Claude added based on user instructions
-    ...Object.entries(cfg.additional_sections || {}).flatMap(([title, content]) => [
-      ...spacer(2),
-      blueBar(title),
-      ...spacer(1),
-      ...(Array.isArray(content) ? content.map(bullet) : [body(String(content || ''))]),
-    ]),
+    // Render optional sections appended after core content
+    ...Object.entries(cfg.additional_sections || {}).flatMap(([key, content], idx) => {
+      const sectionDef = require !== undefined ? null : null; // content already substituted server-side
+      const title = OPTIONAL_SECTION_CONTENT[key]?.title || key.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());
+      return [
+        ...spacer(2),
+        blueBar(`${6 + idx}. ${title}`),
+        ...spacer(1),
+        ...(Array.isArray(content) ? content.map(bullet) : String(content||'').split('\n\n').filter(Boolean).map(p => body(p))),
+      ];
+    }),
   ];
 
   return new Document({
@@ -395,48 +443,77 @@ function buildProject(cfg) {
     }),
   ] : [];
 
-  // Section numbering — adjust if timeline present
+  // Section numbering
   let sectionNum = 1;
   const sn = () => sectionNum++;
 
-  const children = [
-    ...coverPage(cfg),
-    blueBar(`${sn()}. Proposal Introduction`), ...spacer(1),
-    body(sections.introduction || ''),
-    ...spacer(2),
-    blueBar(`${sn()}. Project Confirmation`), ...spacer(1),
-    body(sections.project_confirmation || 'The scope of work for this project is documented in the site assessment. This proposal reflects the commercial terms for that project scope.'),
-    ...spacer(2),
-    blueBar(`${sn()}. Engineering Scope Summary`), ...spacer(1),
-    body(sections.engineering_scope || ''),
-    ...spacer(2),
-    blueBar(`${sn()}. Commercial Summary`), ...spacer(1),
-    new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [7200, 2160], rows: [pricingHeaderRow, ...categoryRows, totalRow] }),
-    ...spacer(1),
-    ...(pricing.contingency_notes || []).map(n => body(n, { italic: true })),
-    ...(pricing.pricing_notes || []).map(n => body(n, { italic: true })),
-    body('Standard Solution Group progress billing terms apply: deposit at signing, progress billing through installation, final balance at substantial completion.', { italic: true }),
-    body('This proposal is valid for 30 days from the date above. Sales tax is added by Solution Group Accounting on all estimates.', { italic: true }),
-    ...spacer(2),
-    ...(timeline.length ? [
+  // Core section renderers — keyed so Claude can order and include/exclude them
+  const SECTION_RENDERERS = {
+    introduction: () => [
+      blueBar(`${sn()}. Proposal Introduction`), ...spacer(1),
+      body(sections.introduction || ''), ...spacer(2),
+    ],
+    project_confirmation: () => [
+      blueBar(`${sn()}. Project Confirmation`), ...spacer(1),
+      body(sections.project_confirmation || 'The scope of work for this project is documented in the site assessment. This proposal reflects the commercial terms for that project scope.'), ...spacer(2),
+    ],
+    engineering_scope: () => [
+      blueBar(`${sn()}. Engineering Scope Summary`), ...spacer(1),
+      body(sections.engineering_scope || ''), ...spacer(2),
+    ],
+    commercial_summary: () => [
+      blueBar(`${sn()}. Commercial Summary`), ...spacer(1),
+      new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [7200, 2160], rows: [pricingHeaderRow, ...categoryRows, totalRow] }),
+      ...spacer(1),
+      ...(pricing.contingency_notes || []).map(n => body(n, { italic: true })),
+      ...(pricing.pricing_notes || []).map(n => body(n, { italic: true })),
+      body('Standard Solution Group progress billing terms apply: deposit at signing, progress billing through installation, final balance at substantial completion.', { italic: true }),
+      body('This proposal is valid for 30 days from the date above. Sales tax is added by Solution Group Accounting on all estimates.', { italic: true }),
+      ...spacer(2),
+    ],
+    timeline: () => timeline.length ? [
       blueBar(`${sn()}. Project Timeline`), ...spacer(1),
       new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [2880, 6480], rows: [timelineHeaderRow, ...timelineRows] }),
       ...spacer(2),
-    ] : []),
-    blueBar(`${sn()}. Key Assumptions & Exclusions`), ...spacer(1),
-    ...(cfg.assumptions_exclusions || []).map(bullet),
-    ...spacer(2),
-    blueBar(`${sn()}. Next Steps`), ...spacer(1),
-    ...(cfg.next_steps || []).map(bullet),
-    ...spacer(1),
-    body('We look forward to the conversation and are ready to move forward on your timeline.'),
-    // Render any additional sections Claude added based on user instructions
-    ...Object.entries(cfg.additional_sections || {}).flatMap(([title, content]) => [
-      ...spacer(2),
-      blueBar(title),
-      ...spacer(1),
-      ...(Array.isArray(content) ? content.map(bullet) : [body(String(content || ''))]),
-    ]),
+    ] : [],
+    assumptions: () => [
+      blueBar(`${sn()}. Key Assumptions & Exclusions`), ...spacer(1),
+      ...(cfg.assumptions_exclusions || []).map(bullet), ...spacer(2),
+    ],
+    next_steps: () => [
+      blueBar(`${sn()}. Next Steps`), ...spacer(1),
+      ...(cfg.next_steps || []).map(bullet), ...spacer(1),
+      body('We look forward to the conversation and are ready to move forward on your timeline.'),
+    ],
+  };
+
+  // Default order — Claude can override via section_order in the config
+  const defaultOrder = ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
+  const sectionOrder = cfg.section_order || defaultOrder;
+
+  // Build section content — Claude can add custom sections anywhere via section_order
+  const sectionContent = sectionOrder.flatMap(key => {
+    if (SECTION_RENDERERS[key]) {
+      return SECTION_RENDERERS[key]();
+    }
+    // Custom section — look up in additional_sections or sections object
+    const customContent = (cfg.additional_sections || {})[key] || (cfg.sections || {})[key];
+    if (customContent) {
+      const title = OPTIONAL_SECTION_CONTENT[key]?.title || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      return [
+        blueBar(`${sn()}. ${title}`), ...spacer(1),
+        ...(Array.isArray(customContent)
+          ? customContent.map(bullet)
+          : String(customContent).split('\n\n').filter(Boolean).map(p => body(p))),
+        ...spacer(2),
+      ];
+    }
+    return [];
+  });
+
+  const children = [
+    ...coverPage(cfg),
+    ...sectionContent,
     ...sigBlock,
   ];
 
@@ -620,10 +697,17 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
   "include_signature": true or false,
   "assumptions_exclusions": ["bullet string"],
   "next_steps": ["bullet string"],
-  "additional_sections": { "Section Title": "paragraph text or array of bullet strings" }
+  "additional_sections": { "regulatory_compliance": "paragraph text", "payment_terms": ["bullet 1", "bullet 2"] },
+  "section_order": ["introduction", "project_confirmation", "engineering_scope", "regulatory_compliance", "commercial_summary", "timeline", "assumptions", "next_steps"]
 }
 
-If the user instructions ask for a new section, add it to additional_sections with a clear title and the requested content.
+SECTION ORDER RULES:
+- Default order: introduction, project_confirmation, engineering_scope, commercial_summary, timeline, assumptions, next_steps
+- If user asks to add a section after a specific section, insert its key at that position in section_order
+- If user asks to remove a section, omit its key from section_order entirely
+- If user asks to replace a section, swap the key with the new section key
+- Custom section keys must also appear in additional_sections with their content
+- Section title displayed = key with underscores replaced by spaces, title-cased
 
 PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.`;
 }
@@ -640,7 +724,9 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const { docType, formData, fileContents, previousConfig, revisionInstructions } = req.body;
+    const { docType, formData, fileContents, previousConfig, revisionInstructions, optionalSections } = req.body;
+    // Merge optionalSections into formData so prompts and injection logic can access it
+    if (optionalSections?.length && formData) formData.optionalSections = optionalSections;
     const fileText = (fileContents || []).join('\n\n---\n\n');
 
     let cfg;
@@ -765,6 +851,43 @@ Return ONLY the document content — no preamble, no explanation.`
         row.timeframe && /(\d|week|phase|month|day|q[1-4])/i.test(row.timeframe)
       );
       if (!hasRealTimeframes) cfg.timeline = [];
+    }
+
+    // Inject optional sections selected by the user
+    const selectedSections = formData?.optionalSections || [];
+    if (selectedSections.length > 0) {
+      const clientName = cfg.client?.short_name || cfg.client?.name || 'the client';
+      if (!cfg.additional_sections) cfg.additional_sections = {};
+
+      selectedSections.forEach(key => {
+        const sectionDef = OPTIONAL_SECTION_CONTENT[key];
+        if (!sectionDef) return;
+        // Substitute client name into content
+        const content = sectionDef.content.replace(/CLIENT_NAME/g, clientName);
+        cfg.additional_sections[key] = content;
+      });
+
+      // Insert optional sections into section_order at logical positions
+      const defaultOrder = cfg.section_order || ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
+      const optionalOrder = {
+        opticlear:    'commercial_summary',  // after commercial summary
+        sg_academy:   'assumptions',         // after assumptions
+        safety:       'assumptions',         // after assumptions
+        kpi_reporting:'assumptions',         // after assumptions
+      };
+
+      selectedSections.forEach(key => {
+        if (cfg.additional_sections[key] && !defaultOrder.includes(key)) {
+          const insertAfter = optionalOrder[key] || 'commercial_summary';
+          const idx = defaultOrder.indexOf(insertAfter);
+          if (idx !== -1) {
+            defaultOrder.splice(idx + 1, 0, key);
+          } else {
+            defaultOrder.push(key);
+          }
+        }
+      });
+      cfg.section_order = defaultOrder;
     }
 
     // 3. Build the docx
