@@ -1412,74 +1412,105 @@ FIELD MAPPING:
 
       {/* ── SECTIONS ── */}
       {page==="sections" && (() => {
-        // All sections — default ones first, optional ones at bottom
         const ALL_SECTIONS = [
-          { key:"introduction",        label:"Proposal Introduction",           desc:"Opening statement and context",                       optional:false },
-          { key:"project_confirmation",label:"Project Confirmation",            desc:"Scope reference and commercial framing",              optional:false, docTypes:["project"] },
-          { key:"service_confirmation",label:"Service Confirmation",            desc:"What Solution Group will deliver",                    optional:false, docTypes:["proposal"] },
-          { key:"engineering_scope",   label:"Engineering Scope Summary",       desc:"Technical system narrative",                          optional:false, docTypes:["project"] },
-          { key:"commercial_summary",  label:"Commercial Summary",              desc:"Pricing table and investment totals",                  optional:false },
-          { key:"timeline",            label:"Project Timeline",                desc:"Schedule phases (only if data provided)",             optional:false },
-          { key:"assumptions",         label:"Key Assumptions & Exclusions",    desc:"Contract assumptions and scope boundaries",           optional:false },
-          { key:"next_steps",          label:"Next Steps",                      desc:"Action items and path to execution",                  optional:false },
-          // Optional sections
-          { key:"opticlear",           label:"OptiClear Remote Monitoring",     desc:"Platform features and dashboard capabilities",        optional:true },
-          { key:"safety",              label:"Operational Safety Support",      desc:"Auditing, training, near-miss, 5S program",           optional:true },
-          { key:"sg_academy",          label:"Solution Group Academy",          desc:"Operator training and certification programs",        optional:true },
-          { key:"kpi_reporting",       label:"KPI Reporting & Dashboard",       desc:"Executive dashboard and reporting cadence",           optional:true },
+          { key:"introduction",        label:"Proposal Introduction",        desc:"Opening statement and context",                  optional:false },
+          { key:"project_confirmation",label:"Project Confirmation",         desc:"Scope reference and commercial framing",         optional:false, docTypes:["project"] },
+          { key:"service_confirmation",label:"Service Confirmation",         desc:"What Solution Group will deliver",               optional:false, docTypes:["proposal"] },
+          { key:"engineering_scope",   label:"Engineering Scope Summary",    desc:"Technical system narrative",                    optional:false, docTypes:["project"] },
+          { key:"commercial_summary",  label:"Commercial Summary",           desc:"Pricing table and investment totals",            optional:false },
+          { key:"timeline",            label:"Project Timeline",             desc:"Schedule phases (only if data provided)",        optional:false },
+          { key:"assumptions",         label:"Key Assumptions & Exclusions", desc:"Contract assumptions and scope boundaries",      optional:false },
+          { key:"next_steps",          label:"Next Steps",                   desc:"Action items and path to execution",             optional:false },
+          { key:"opticlear",           label:"OptiClear Remote Monitoring",  desc:"Platform features and dashboard capabilities",   optional:true },
+          { key:"safety",              label:"Operational Safety Support",   desc:"Auditing, training, near-miss, 5S program",      optional:true },
+          { key:"sg_academy",          label:"Solution Group Academy",       desc:"Operator training and certification programs",   optional:true },
+          { key:"kpi_reporting",       label:"KPI Reporting & Dashboard",    desc:"Executive dashboard and reporting cadence",      optional:true },
         ].filter(s => !s.docTypes || s.docTypes.includes(docType));
 
-        // Initialize section order state from formData or defaults
-        const initSections = () => {
-          const stored = formData.sectionBuilderState;
-          if (stored) return stored;
-          return ALL_SECTIONS.map(s => ({ ...s, checked: !s.optional }));
-        };
-
-        // Use a ref-based approach — store in formData.sectionBuilderState
         const sectionState = formData.sectionBuilderState || ALL_SECTIONS.map(s => ({ ...s, checked: !s.optional }));
 
-        const updateSections = (newState) => {
-          setFormData(prev => ({ ...prev, sectionBuilderState: newState }));
-        };
-
-        const toggleSection = (key) => {
-          updateSections(sectionState.map(s => s.key === key ? { ...s, checked: !s.checked } : s));
-        };
-
-        let dragSrc = null;
-
-        const onDragStart = (e, idx) => {
-          dragSrc = idx;
-          e.dataTransfer.effectAllowed = 'move';
-        };
-
-        const onDragOver = (e, idx) => {
-          e.preventDefault();
-          if (dragSrc === null || dragSrc === idx) return;
-          const reordered = [...sectionState];
-          const [moved] = reordered.splice(dragSrc, 1);
-          reordered.splice(idx, 0, moved);
-          dragSrc = idx;
-          updateSections(reordered);
-        };
-
-        const onDragEnd = () => { dragSrc = null; };
+        const updateSections = (newState) => setFormData(prev => ({ ...prev, sectionBuilderState: newState }));
+        const toggleSection = (key) => updateSections(sectionState.map(s => s.key === key ? { ...s, checked: !s.checked } : s));
 
         const handleContinue = () => {
           const checkedKeys = sectionState.filter(s => s.checked).map(s => s.key);
           const optionalSelected = checkedKeys.filter(k => ALL_SECTIONS.find(s => s.key === k && s.optional));
-          const order = checkedKeys;
-          setFormData(prev => ({
-            ...prev,
-            optionalSections: optionalSelected,
-            sectionOrder: order,
-            sectionBuilderState: sectionState,
-          }));
+          setFormData(prev => ({ ...prev, optionalSections: optionalSelected, sectionOrder: checkedKeys, sectionBuilderState: sectionState }));
           setPage("form");
         };
 
         const checkedCount = sectionState.filter(s => s.checked).length;
+
+        // Pointer-based drag — uses refs to avoid re-render during drag
+        const dragState = { active: false, fromIdx: -1, toIdx: -1 };
+
+        const onPointerDown = (e, idx) => {
+          if (e.target.closest('.section-checkbox')) return;
+          e.preventDefault();
+          e.currentTarget.setPointerCapture(e.pointerId);
+
+          const listEl = e.currentTarget.closest('.section-list');
+          const allRows = () => Array.from(listEl.querySelectorAll('.section-row'));
+          dragState.active = true;
+          dragState.fromIdx = idx;
+          dragState.toIdx = idx;
+
+          // Style the grabbed row
+          e.currentTarget.style.opacity = '0.4';
+          e.currentTarget.style.transform = 'scale(1.02)';
+          e.currentTarget.style.zIndex = '10';
+          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+
+          const onMove = (me) => {
+            if (!dragState.active) return;
+            const rows = allRows();
+            // Find which row center we're closest to
+            let closest = dragState.toIdx;
+            let closestDist = Infinity;
+            rows.forEach((r, i) => {
+              if (i === dragState.fromIdx) return;
+              const rect = r.getBoundingClientRect();
+              const center = rect.top + rect.height / 2;
+              const dist = Math.abs(me.clientY - center);
+              if (dist < closestDist) { closestDist = dist; closest = i; }
+            });
+
+            if (closest !== dragState.toIdx) {
+              dragState.toIdx = closest;
+              // Visual preview — shift rows without state update
+              rows.forEach((r, i) => {
+                r.style.transition = 'transform 0.15s';
+                if (dragState.fromIdx < dragState.toIdx) {
+                  // Moving down
+                  if (i > dragState.fromIdx && i <= dragState.toIdx) r.style.transform = 'translateY(-52px)';
+                  else if (i !== dragState.fromIdx) r.style.transform = '';
+                } else {
+                  // Moving up
+                  if (i >= dragState.toIdx && i < dragState.fromIdx) r.style.transform = 'translateY(52px)';
+                  else if (i !== dragState.fromIdx) r.style.transform = '';
+                }
+              });
+            }
+          };
+
+          const onUp = () => {
+            dragState.active = false;
+            // Reset all visual transforms
+            allRows().forEach(r => { r.style.transform = ''; r.style.transition = ''; r.style.opacity = ''; r.style.zIndex = ''; r.style.boxShadow = ''; });
+            // Commit the reorder to state
+            if (dragState.fromIdx !== dragState.toIdx) {
+              const reordered = [...sectionState];
+              const [moved] = reordered.splice(dragState.fromIdx, 1);
+              reordered.splice(dragState.toIdx, 0, moved);
+              updateSections(reordered);
+            }
+            e.currentTarget.removeEventListener('pointermove', onMove);
+            e.currentTarget.removeEventListener('pointerup', onUp);
+          };
+
+          e.currentTarget.addEventListener('pointermove', onMove);
+          e.currentTarget.addEventListener('pointerup', onUp);
+        };
 
         return (
           <div className="sections-page">
@@ -1494,15 +1525,10 @@ FIELD MAPPING:
                 <div
                   key={s.key}
                   className={`section-row${s.checked ? " checked" : ""}${s.optional ? " optional" : ""}`}
-                  draggable
-                  onDragStart={e => onDragStart(e, idx)}
-                  onDragOver={e => onDragOver(e, idx)}
-                  onDragEnd={onDragEnd}
+                  onPointerDown={e => onPointerDown(e, idx)}
+                  style={{touchAction:"none"}}
                 >
-                  <div
-                    className={`section-checkbox${s.checked ? " checked" : ""}`}
-                    onClick={() => toggleSection(s.key)}
-                  >
+                  <div className={`section-checkbox${s.checked ? " checked" : ""}`} onClick={e=>{e.stopPropagation();toggleSection(s.key);}}>
                     {s.checked && <span style={{color:"white",fontSize:12,lineHeight:1,fontWeight:700}}>✓</span>}
                   </div>
                   <div className="section-label">
@@ -1512,7 +1538,7 @@ FIELD MAPPING:
                   <span className={`section-badge ${s.optional ? "section-badge-optional" : "section-badge-default"}`}>
                     {s.optional ? "optional" : "default"}
                   </span>
-                  <div className="section-drag-handle" title="Drag to reorder">⠿</div>
+                  <div className="section-drag-handle" style={{cursor:"grab"}}>⠿</div>
                 </div>
               ))}
             </div>
