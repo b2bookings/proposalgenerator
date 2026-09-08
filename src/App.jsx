@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 
 const SG_BLUE = "#2B579A";
 const SG_LIGHT = "#D5E8F0";
@@ -766,7 +766,9 @@ export default function App() {
     }, EMAIL_DELAY_MS);
   };
 
-  const fileRef = useRef();
+  // Persistent drag ref — survives React re-renders so idx values stay correct
+  const sectionDragRef = React.useRef({ active:false, fromIdx:-1, toIdx:-1 });
+  const sectionStateRef = React.useRef([]);
 
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
@@ -1429,8 +1431,11 @@ FIELD MAPPING:
 
         const sectionState = formData.sectionBuilderState || ALL_SECTIONS.map(s => ({ ...s, checked: !s.optional }));
 
+        // Keep ref in sync with current state so drag handler always reads latest
+        sectionStateRef.current = sectionState;
+
         const updateSections = (newState) => setFormData(prev => ({ ...prev, sectionBuilderState: newState }));
-        const toggleSection = (key) => updateSections(sectionState.map(s => s.key === key ? { ...s, checked: !s.checked } : s));
+        const toggleSection = (key) => updateSections(sectionStateRef.current.map(s => s.key === key ? { ...s, checked: !s.checked } : s));
 
         const handleContinue = () => {
           const checkedKeys = sectionState.filter(s => s.checked).map(s => s.key);
@@ -1441,9 +1446,6 @@ FIELD MAPPING:
 
         const checkedCount = sectionState.filter(s => s.checked).length;
 
-        // Pointer-based drag — uses refs to avoid re-render during drag
-        const dragState = { active: false, fromIdx: -1, toIdx: -1 };
-
         const onPointerDown = (e, idx) => {
           if (e.target.closest('.section-checkbox')) return;
           e.preventDefault();
@@ -1451,57 +1453,50 @@ FIELD MAPPING:
 
           const listEl = e.currentTarget.closest('.section-list');
           const allRows = () => Array.from(listEl.querySelectorAll('.section-row'));
-          dragState.active = true;
-          dragState.fromIdx = idx;
-          dragState.toIdx = idx;
 
-          // Style the grabbed row
+          // Always read from ref — survives re-renders
+          sectionDragRef.current = { active: true, fromIdx: idx, toIdx: idx };
+
           e.currentTarget.style.opacity = '0.4';
           e.currentTarget.style.transform = 'scale(1.02)';
-          e.currentTarget.style.zIndex = '10';
           e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
 
           const onMove = (me) => {
-            if (!dragState.active) return;
+            if (!sectionDragRef.current.active) return;
             const rows = allRows();
-            // Find which row center we're closest to
-            let closest = dragState.toIdx;
+            const { fromIdx } = sectionDragRef.current;
+            let closest = sectionDragRef.current.toIdx;
             let closestDist = Infinity;
             rows.forEach((r, i) => {
-              if (i === dragState.fromIdx) return;
+              if (i === fromIdx) return;
               const rect = r.getBoundingClientRect();
               const center = rect.top + rect.height / 2;
               const dist = Math.abs(me.clientY - center);
               if (dist < closestDist) { closestDist = dist; closest = i; }
             });
 
-            if (closest !== dragState.toIdx) {
-              dragState.toIdx = closest;
-              // Visual preview — shift rows without state update
+            if (closest !== sectionDragRef.current.toIdx) {
+              sectionDragRef.current.toIdx = closest;
               rows.forEach((r, i) => {
                 r.style.transition = 'transform 0.15s';
-                if (dragState.fromIdx < dragState.toIdx) {
-                  // Moving down
-                  if (i > dragState.fromIdx && i <= dragState.toIdx) r.style.transform = 'translateY(-52px)';
-                  else if (i !== dragState.fromIdx) r.style.transform = '';
+                if (fromIdx < closest) {
+                  r.style.transform = (i > fromIdx && i <= closest) ? 'translateY(-52px)' : (i === fromIdx ? '' : '');
                 } else {
-                  // Moving up
-                  if (i >= dragState.toIdx && i < dragState.fromIdx) r.style.transform = 'translateY(52px)';
-                  else if (i !== dragState.fromIdx) r.style.transform = '';
+                  r.style.transform = (i >= closest && i < fromIdx) ? 'translateY(52px)' : (i === fromIdx ? '' : '');
                 }
               });
             }
           };
 
           const onUp = () => {
-            dragState.active = false;
-            // Reset all visual transforms
-            allRows().forEach(r => { r.style.transform = ''; r.style.transition = ''; r.style.opacity = ''; r.style.zIndex = ''; r.style.boxShadow = ''; });
-            // Commit the reorder to state
-            if (dragState.fromIdx !== dragState.toIdx) {
-              const reordered = [...sectionState];
-              const [moved] = reordered.splice(dragState.fromIdx, 1);
-              reordered.splice(dragState.toIdx, 0, moved);
+            sectionDragRef.current.active = false;
+            allRows().forEach(r => { r.style.transform = ''; r.style.transition = ''; r.style.opacity = ''; r.style.boxShadow = ''; });
+            const { fromIdx, toIdx } = sectionDragRef.current;
+            if (fromIdx !== toIdx) {
+              // Read from ref to get latest state regardless of re-renders
+              const reordered = [...sectionStateRef.current];
+              const [moved] = reordered.splice(fromIdx, 1);
+              reordered.splice(toIdx, 0, moved);
               updateSections(reordered);
             }
             e.currentTarget.removeEventListener('pointermove', onMove);
