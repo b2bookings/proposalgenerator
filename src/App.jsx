@@ -978,12 +978,12 @@ FIELD MAPPING:
   // ── completion percentage across ALL fields (required + optional) ──
   const totalFields = allFields.length;
   const filledAll   = allFields.filter(f => formData[f.key]?.toString().trim()).length;
-  const completePct = Math.round((filledAll / totalFields) * 100);
+  const completePct = totalFields > 0 ? Math.round((filledAll / totalFields) * 100) : 0;
 
   // required-only for gate
   const reqFields  = allFields.filter(f=>f.required);
   const filledReq  = reqFields.filter(f=>formData[f.key]?.toString().trim()).length;
-  const reqPct     = Math.round((filledReq/reqFields.length)*100);
+  const reqPct     = reqFields.length > 0 ? Math.round((filledReq/reqFields.length)*100) : 0;
 
   // ── parse ──
   const handleParse = async () => {
@@ -1413,7 +1413,7 @@ FIELD MAPPING:
       )}
 
       {/* ── SECTIONS ── */}
-      {page==="sections" && (() => {
+      {page==="sections" && docType && (() => {
         const ALL_SECTIONS = [
           { key:"introduction",        label:"Proposal Introduction",        desc:"Opening statement and context",                  optional:false },
           { key:"project_confirmation",label:"Project Confirmation",         desc:"Scope reference and commercial framing",         optional:false, docTypes:["project"] },
