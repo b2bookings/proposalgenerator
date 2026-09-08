@@ -729,9 +729,11 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const { docType, formData, fileContents, previousConfig, revisionInstructions, optionalSections } = req.body;
+    const { docType, formData, fileContents, previousConfig, revisionInstructions, optionalSections, sectionOrder } = req.body;
     // Merge optionalSections into formData so prompts and injection logic can access it
     if (optionalSections?.length && formData) formData.optionalSections = optionalSections;
+    // User-defined section order takes priority over everything
+    if (sectionOrder?.length && formData) formData.sectionOrder = sectionOrder;
     const fileText = (fileContents || []).join('\n\n---\n\n');
 
     let cfg;
@@ -877,27 +879,34 @@ Return ONLY the document content — no preamble, no explanation.`
         cfg.additional_sections[key] = sectionContent;
       });
 
-      // Insert optional sections into section_order at logical positions
-      const defaultOrder = cfg.section_order || ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
-      const optionalOrder = {
-        opticlear:    'commercial_summary',  // after commercial summary
-        sg_academy:   'assumptions',         // after assumptions
-        safety:       'assumptions',         // after assumptions
-        kpi_reporting:'assumptions',         // after assumptions
-      };
+      // Use user-defined section order from the section builder page if provided
+      // Otherwise fall back to smart default positioning
+      if (formData?.sectionOrder?.length) {
+        // User explicitly ordered sections — trust it completely
+        cfg.section_order = formData.sectionOrder;
+      } else {
+        // Insert optional sections at logical positions
+        const defaultOrder = cfg.section_order || ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
+        const optionalOrder = {
+          opticlear:    'commercial_summary',
+          sg_academy:   'assumptions',
+          safety:       'assumptions',
+          kpi_reporting:'assumptions',
+        };
 
-      selectedSections.forEach(key => {
-        if (cfg.additional_sections[key] && !defaultOrder.includes(key)) {
-          const insertAfter = optionalOrder[key] || 'commercial_summary';
-          const idx = defaultOrder.indexOf(insertAfter);
-          if (idx !== -1) {
-            defaultOrder.splice(idx + 1, 0, key);
-          } else {
-            defaultOrder.push(key);
+        selectedSections.forEach(key => {
+          if (cfg.additional_sections[key] && !defaultOrder.includes(key)) {
+            const insertAfter = optionalOrder[key] || 'commercial_summary';
+            const idx = defaultOrder.indexOf(insertAfter);
+            if (idx !== -1) {
+              defaultOrder.splice(idx + 1, 0, key);
+            } else {
+              defaultOrder.push(key);
+            }
           }
-        }
-      });
-      cfg.section_order = defaultOrder;
+        });
+        cfg.section_order = defaultOrder;
+      }
     }
 
     // 3. Build the docx
