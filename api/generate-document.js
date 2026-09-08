@@ -213,38 +213,64 @@ function buildProposal(cfg) {
     ]
   });
 
-  const children = [
-    ...coverPage(cfg),
-    blueBar('1. Proposal Introduction'), ...spacer(1),
-    body(cfg.sections?.introduction || cfg.intro_text || ''),
-    ...spacer(1),
-    blueBar('2. Service Confirmation'), ...spacer(1),
-    body(cfg.sections?.service_confirmation || cfg.service_confirmation_text || ''),
-    ...spacer(1),
-    blueBar('3. Commercial Summary'), ...spacer(1),
-    new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [5400, 1980, 1980], rows: [pricingHeaderRow, ...pricingLineRows, totalRow] }),
-    ...spacer(1),
-    body('Fees adjust annually by the greater of 3% or the annualized regional CPI.', { italic: true }),
-    body(`This proposal is valid for 30 days from the date above.`, { italic: true }),
-    ...spacer(1),
-    blueBar('4. Key Assumptions & Exclusions'), ...spacer(1),
-    ...(cfg.assumptions_exclusions || []).map(bullet),
-    ...spacer(1),
-    blueBar('5. Next Steps'), ...spacer(1),
-    ...(cfg.next_steps || []).map(bullet),
-    ...spacer(1),
-    body('We look forward to moving forward on your timeline.'),
-    // Render optional sections appended after core content
-    ...Object.entries(cfg.additional_sections || {}).flatMap(([key, content], idx) => {
-      const sectionDef = require !== undefined ? null : null; // content already substituted server-side
+  // Section numbering
+  let sectionNum = 1;
+  const sn = () => sectionNum++;
+
+  // Flexible section renderers — keyed so user order is respected
+  const PROPOSAL_SECTION_RENDERERS = {
+    introduction: () => [
+      blueBar(`${sn()}. Proposal Introduction`), ...spacer(1),
+      body(cfg.sections?.introduction || cfg.intro_text || ''), ...spacer(2),
+    ],
+    service_confirmation: () => [
+      blueBar(`${sn()}. Service Confirmation`), ...spacer(1),
+      body(cfg.sections?.service_confirmation || cfg.service_confirmation_text || ''), ...spacer(2),
+    ],
+    commercial_summary: () => [
+      blueBar(`${sn()}. Commercial Summary`), ...spacer(1),
+      new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [5400, 1980, 1980], rows: [pricingHeaderRow, ...pricingLineRows, totalRow] }),
+      ...spacer(1),
+      body('Fees adjust annually by the greater of 3% or the annualized regional CPI.', { italic: true }),
+      body('This proposal is valid for 30 days from the date above.', { italic: true }),
+      ...spacer(2),
+    ],
+    assumptions: () => [
+      blueBar(`${sn()}. Key Assumptions & Exclusions`), ...spacer(1),
+      ...(cfg.assumptions_exclusions || []).map(bullet), ...spacer(2),
+    ],
+    next_steps: () => [
+      blueBar(`${sn()}. Next Steps`), ...spacer(1),
+      ...(cfg.next_steps || []).map(bullet), ...spacer(1),
+      body('We look forward to moving forward on your timeline.'),
+    ],
+  };
+
+  const proposalDefaultOrder = ['introduction','service_confirmation','commercial_summary','assumptions','next_steps'];
+  const proposalSectionOrder = Array.isArray(cfg.section_order) && cfg.section_order.length > 0
+    ? cfg.section_order
+    : proposalDefaultOrder;
+
+  const sectionContent = proposalSectionOrder.flatMap(key => {
+    if (PROPOSAL_SECTION_RENDERERS[key]) return PROPOSAL_SECTION_RENDERERS[key]();
+    // Custom / optional section
+    const customContent = (cfg.additional_sections || {})[key];
+    if (customContent) {
       const title = OPTIONAL_SECTION_CONTENT[key]?.title || key.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase());
       return [
+        blueBar(`${sn()}. ${title}`), ...spacer(1),
+        ...(Array.isArray(customContent)
+          ? customContent.map(bullet)
+          : String(customContent).split('\n\n').filter(Boolean).map(p => body(p))),
         ...spacer(2),
-        blueBar(`${6 + idx}. ${title}`),
-        ...spacer(1),
-        ...(Array.isArray(content) ? content.map(bullet) : String(content||'').split('\n\n').filter(Boolean).map(p => body(p))),
       ];
-    }),
+    }
+    return [];
+  });
+
+  const children = [
+    ...coverPage(cfg),
+    ...sectionContent,
   ];
 
   return new Document({
@@ -864,13 +890,10 @@ Return ONLY the document content — no preamble, no explanation.`
     const selectedSections = formData?.optionalSections || [];
     const clientNameForSections = cfg.client?.short_name || cfg.client?.name || 'the client';
 
-    // ALWAYS wipe Claude-generated additional_sections — Claude should never auto-add sections.
-    // Only user-selected optional sections and explicit additional_instruction sections are allowed.
-    // This prevents Claude from hallucinating sections from the input document content.
+    // ALWAYS wipe Claude-generated additional_sections
     cfg.additional_sections = {};
-    // Also wipe any Claude-generated section_order — we control this
-    if (!selectedSections.length && !cfg.section_order) delete cfg.section_order;
 
+    // Inject optional section content
     if (selectedSections.length > 0) {
       selectedSections.forEach(key => {
         const sectionDef = OPTIONAL_SECTION_CONTENT[key];
@@ -878,35 +901,32 @@ Return ONLY the document content — no preamble, no explanation.`
         const sectionContent = sectionDef.content.replace(/CLIENT_NAME/g, clientNameForSections);
         cfg.additional_sections[key] = sectionContent;
       });
+    }
 
-      // Use user-defined section order from the section builder page if provided
-      // Otherwise fall back to smart default positioning
-      if (formData?.sectionOrder?.length) {
-        // User explicitly ordered sections — trust it completely
-        cfg.section_order = formData.sectionOrder;
-      } else {
-        // Insert optional sections at logical positions
-        const defaultOrder = cfg.section_order || ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
-        const optionalOrder = {
-          opticlear:    'commercial_summary',
-          sg_academy:   'assumptions',
-          safety:       'assumptions',
-          kpi_reporting:'assumptions',
-        };
-
-        selectedSections.forEach(key => {
-          if (cfg.additional_sections[key] && !defaultOrder.includes(key)) {
-            const insertAfter = optionalOrder[key] || 'commercial_summary';
-            const idx = defaultOrder.indexOf(insertAfter);
-            if (idx !== -1) {
-              defaultOrder.splice(idx + 1, 0, key);
-            } else {
-              defaultOrder.push(key);
-            }
-          }
-        });
-        cfg.section_order = defaultOrder;
-      }
+    // ALWAYS apply user-defined section order if provided — regardless of optional sections
+    // This is the source of truth from the section builder page
+    if (formData?.sectionOrder?.length) {
+      cfg.section_order = formData.sectionOrder;
+    } else if (selectedSections.length > 0) {
+      // No explicit order but has optional sections — insert at logical positions
+      const defaultOrder = ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
+      const optionalOrder = {
+        opticlear:    'commercial_summary',
+        sg_academy:   'assumptions',
+        safety:       'assumptions',
+        kpi_reporting:'assumptions',
+      };
+      selectedSections.forEach(key => {
+        if (cfg.additional_sections[key] && !defaultOrder.includes(key)) {
+          const insertAfter = optionalOrder[key] || 'commercial_summary';
+          const idx = defaultOrder.indexOf(insertAfter);
+          idx !== -1 ? defaultOrder.splice(idx + 1, 0, key) : defaultOrder.push(key);
+        }
+      });
+      cfg.section_order = defaultOrder;
+    } else {
+      // No optional sections, no user order — wipe any Claude-generated order
+      delete cfg.section_order;
     }
 
     // 3. Build the docx
