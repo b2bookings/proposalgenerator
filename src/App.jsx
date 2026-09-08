@@ -769,6 +769,7 @@ export default function App() {
   // Persistent drag ref — survives React re-renders so idx values stay correct
   const sectionDragRef = React.useRef({ active:false, fromIdx:-1, toIdx:-1 });
   const sectionStateRef = React.useRef([]);
+  const fileRef = useRef();
 
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
