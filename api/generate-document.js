@@ -487,9 +487,15 @@ function buildProject(cfg) {
     ],
   };
 
-  // Default order — Claude can override via section_order in the config
+  // Default order — Claude can override via section_order ONLY when user explicitly requested changes
+  // If section_order is null or contains unknown keys, use the default
+  const validKeys = ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
+  const claudeOrder = Array.isArray(cfg.section_order) && cfg.section_order.length > 0 ? cfg.section_order : null;
   const defaultOrder = ['introduction','project_confirmation','engineering_scope','commercial_summary','timeline','assumptions','next_steps'];
-  const sectionOrder = cfg.section_order || defaultOrder;
+  // Only use Claude's order if it contains at least the core valid keys — prevents hallucinated structures
+  const sectionOrder = (claudeOrder && claudeOrder.some(k => validKeys.includes(k)))
+    ? claudeOrder
+    : defaultOrder;
 
   // Build section content — Claude can add custom sections anywhere via section_order
   const sectionContent = sectionOrder.flatMap(key => {
@@ -592,11 +598,11 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
   "timeline": "string or null — timeline description if provided",
   "include_signature": true or false,
   "assumptions_exclusions": ["bullet string"],
-  "next_steps": ["bullet string"],
-  "additional_sections": { "Section Title": "paragraph text or array of bullet strings" }
+  "next_steps": ["bullet string"]
 }
 
-If the user instructions ask for a new section, add it to additional_sections. Extract everything available. For client/SG contacts: use what you have, leave fields as empty string if unknown.`;
+Extract everything available. For client/SG contacts: use what you have, leave fields as empty string if unknown.
+IMPORTANT: Do NOT add any additional_sections or section_order — only return the fields listed above.`;
 }
 
 function assessmentConfigPrompt(formData, fileText) {
@@ -697,17 +703,16 @@ Return ONLY valid JSON (no markdown, no preamble) matching this structure:
   "include_signature": true or false,
   "assumptions_exclusions": ["bullet string"],
   "next_steps": ["bullet string"],
-  "additional_sections": { "regulatory_compliance": "paragraph text", "payment_terms": ["bullet 1", "bullet 2"] },
-  "section_order": ["introduction", "project_confirmation", "engineering_scope", "regulatory_compliance", "commercial_summary", "timeline", "assumptions", "next_steps"]
+  "section_order": null
 }
 
-SECTION ORDER RULES:
+SECTION ORDER RULES — only apply when user explicitly asks to add/remove/reorder sections via additional instructions:
 - Default order: introduction, project_confirmation, engineering_scope, commercial_summary, timeline, assumptions, next_steps
-- If user asks to add a section after a specific section, insert its key at that position in section_order
-- If user asks to remove a section, omit its key from section_order entirely
-- If user asks to replace a section, swap the key with the new section key
-- Custom section keys must also appear in additional_sections with their content
-- Section title displayed = key with underscores replaced by spaces, title-cased
+- If user asks to add a custom section, include it in section_order at the right position AND add it to additional_sections
+- If user asks to remove a section, omit its key from section_order
+- If user asks to replace a section, swap the key
+- If no section changes requested, return section_order as null
+IMPORTANT: Never invent or add sections that were not explicitly requested.
 
 PRICING GUIDANCE: Roll up all individual tracker line items into the 4 categories. Parts & Equipment = all parts/equipment/materials. Engineering & Labor = all labor, programming, warranty, freight. Operations & Management = travel, lodging, meals, admin/PM. OptiClear Remote Management = only if OptiClear subscription included. The "total" must match the sum of category amounts. Never show individual line items.`;
 }
@@ -855,16 +860,21 @@ Return ONLY the document content — no preamble, no explanation.`
 
     // Inject optional sections selected by the user
     const selectedSections = formData?.optionalSections || [];
-    if (selectedSections.length > 0) {
-      const clientName = cfg.client?.short_name || cfg.client?.name || 'the client';
-      if (!cfg.additional_sections) cfg.additional_sections = {};
+    const clientNameForSections = cfg.client?.short_name || cfg.client?.name || 'the client';
 
+    // ALWAYS wipe Claude-generated additional_sections — Claude should never auto-add sections.
+    // Only user-selected optional sections and explicit additional_instruction sections are allowed.
+    // This prevents Claude from hallucinating sections from the input document content.
+    cfg.additional_sections = {};
+    // Also wipe any Claude-generated section_order — we control this
+    if (!selectedSections.length && !cfg.section_order) delete cfg.section_order;
+
+    if (selectedSections.length > 0) {
       selectedSections.forEach(key => {
         const sectionDef = OPTIONAL_SECTION_CONTENT[key];
         if (!sectionDef) return;
-        // Substitute client name into content
-        const content = sectionDef.content.replace(/CLIENT_NAME/g, clientName);
-        cfg.additional_sections[key] = content;
+        const sectionContent = sectionDef.content.replace(/CLIENT_NAME/g, clientNameForSections);
+        cfg.additional_sections[key] = sectionContent;
       });
 
       // Insert optional sections into section_order at logical positions
