@@ -96,15 +96,17 @@ const styles = `
   .sections-title { font-size: 28px; font-weight: 600; color: ${SG_BLUE}; margin-bottom: 6px; letter-spacing: -0.3px; }
   .sections-sub { font-size: 14px; color: #7a8a9a; margin-bottom: 28px; font-weight: 300; line-height: 1.6; }
   .section-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
-  .section-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px; border: 1.5px solid ${SG_BORDER_GRAY}; background: white; cursor: grab; user-select: none; transition: all 0.15s; }
-  .section-row:active { cursor: grabbing; }
+  .section-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px; border: 1.5px solid ${SG_BORDER_GRAY}; background: white; transition: all 0.15s; }
   .section-row.checked { border-color: ${SG_BLUE}; background: #f0f5ff; }
   .section-row.optional { border-style: dashed; }
   .section-row.optional.checked { border-style: solid; }
-  .section-row.dragging-over { border-color: ${SG_TEAL}; background: #e8f8f5; }
   .section-checkbox { width: 20px; height: 20px; border-radius: 4px; border: 2px solid #c8d4e8; background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: all 0.15s; }
   .section-checkbox.checked { background: ${SG_BLUE}; border-color: ${SG_BLUE}; }
-  .section-drag-handle { color: #c8d4e8; font-size: 16px; cursor: grab; flex-shrink: 0; padding: 0 2px; }
+  .section-arrows { display: flex; flex-direction: column; gap: 2px; opacity: 0; transition: opacity 0.15s; }
+  .section-row:hover .section-arrows { opacity: 1; }
+  .arrow-btn { background: none; border: 1px solid #e2e8f0; border-radius: 3px; width: 22px; height: 20px; cursor: pointer; font-size: 9px; color: #7a8a9a; display: flex; align-items: center; justify-content: center; padding: 0; transition: all 0.12s; line-height: 1; }
+  .arrow-btn:hover:not(:disabled) { background: ${SG_BLUE}; border-color: ${SG_BLUE}; color: white; }
+  .arrow-btn:disabled { opacity: 0.2; cursor: default; }
   .section-label { flex: 1; }
   .section-label-name { font-size: 14px; font-weight: 500; color: #1a2332; }
   .section-label-desc { font-size: 11px; color: #9aa5b4; margin-top: 2px; font-weight: 300; }
@@ -1432,11 +1434,18 @@ FIELD MAPPING:
 
         const sectionState = formData.sectionBuilderState || ALL_SECTIONS.map(s => ({ ...s, checked: !s.optional }));
 
-        // Keep ref in sync with current state so drag handler always reads latest
         sectionStateRef.current = sectionState;
 
         const updateSections = (newState) => setFormData(prev => ({ ...prev, sectionBuilderState: newState }));
         const toggleSection = (key) => updateSections(sectionStateRef.current.map(s => s.key === key ? { ...s, checked: !s.checked } : s));
+
+        const moveSection = (idx, dir) => {
+          const arr = [...sectionStateRef.current];
+          const target = idx + dir;
+          if (target < 0 || target >= arr.length) return;
+          [arr[idx], arr[target]] = [arr[target], arr[idx]];
+          updateSections(arr);
+        };
 
         const handleContinue = () => {
           const checkedKeys = sectionState.filter(s => s.checked).map(s => s.key);
@@ -1447,73 +1456,12 @@ FIELD MAPPING:
 
         const checkedCount = sectionState.filter(s => s.checked).length;
 
-        const onPointerDown = (e, idx) => {
-          if (e.target.closest('.section-checkbox')) return;
-          e.preventDefault();
-          e.currentTarget.setPointerCapture(e.pointerId);
-
-          const listEl = e.currentTarget.closest('.section-list');
-          const allRows = () => Array.from(listEl.querySelectorAll('.section-row'));
-
-          // Always read from ref — survives re-renders
-          sectionDragRef.current = { active: true, fromIdx: idx, toIdx: idx };
-
-          e.currentTarget.style.opacity = '0.4';
-          e.currentTarget.style.transform = 'scale(1.02)';
-          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
-
-          const onMove = (me) => {
-            if (!sectionDragRef.current.active) return;
-            const rows = allRows();
-            const { fromIdx } = sectionDragRef.current;
-            let closest = sectionDragRef.current.toIdx;
-            let closestDist = Infinity;
-            rows.forEach((r, i) => {
-              if (i === fromIdx) return;
-              const rect = r.getBoundingClientRect();
-              const center = rect.top + rect.height / 2;
-              const dist = Math.abs(me.clientY - center);
-              if (dist < closestDist) { closestDist = dist; closest = i; }
-            });
-
-            if (closest !== sectionDragRef.current.toIdx) {
-              sectionDragRef.current.toIdx = closest;
-              rows.forEach((r, i) => {
-                r.style.transition = 'transform 0.15s';
-                if (fromIdx < closest) {
-                  r.style.transform = (i > fromIdx && i <= closest) ? 'translateY(-52px)' : (i === fromIdx ? '' : '');
-                } else {
-                  r.style.transform = (i >= closest && i < fromIdx) ? 'translateY(52px)' : (i === fromIdx ? '' : '');
-                }
-              });
-            }
-          };
-
-          const onUp = () => {
-            sectionDragRef.current.active = false;
-            allRows().forEach(r => { r.style.transform = ''; r.style.transition = ''; r.style.opacity = ''; r.style.boxShadow = ''; });
-            const { fromIdx, toIdx } = sectionDragRef.current;
-            if (fromIdx !== toIdx) {
-              // Read from ref to get latest state regardless of re-renders
-              const reordered = [...sectionStateRef.current];
-              const [moved] = reordered.splice(fromIdx, 1);
-              reordered.splice(toIdx, 0, moved);
-              updateSections(reordered);
-            }
-            e.currentTarget.removeEventListener('pointermove', onMove);
-            e.currentTarget.removeEventListener('pointerup', onUp);
-          };
-
-          e.currentTarget.addEventListener('pointermove', onMove);
-          e.currentTarget.addEventListener('pointerup', onUp);
-        };
-
         return (
           <div className="sections-page">
             <button className="form-back" onClick={()=>setPage("intake")}>← Back</button>
             <div className="sections-title">Build your document</div>
             <div className="sections-sub">
-              Check the sections to include and drag to reorder. Default sections are pre-selected.
+              Check the sections to include. Hover any row to reorder with the arrows.
             </div>
 
             <div className="section-list">
@@ -1521,10 +1469,9 @@ FIELD MAPPING:
                 <div
                   key={s.key}
                   className={`section-row${s.checked ? " checked" : ""}${s.optional ? " optional" : ""}`}
-                  onPointerDown={e => onPointerDown(e, idx)}
-                  style={{touchAction:"none"}}
+                  style={{position:"relative"}}
                 >
-                  <div className={`section-checkbox${s.checked ? " checked" : ""}`} onClick={e=>{e.stopPropagation();toggleSection(s.key);}}>
+                  <div className={`section-checkbox${s.checked ? " checked" : ""}`} onClick={()=>toggleSection(s.key)}>
                     {s.checked && <span style={{color:"white",fontSize:12,lineHeight:1,fontWeight:700}}>✓</span>}
                   </div>
                   <div className="section-label">
@@ -1534,7 +1481,20 @@ FIELD MAPPING:
                   <span className={`section-badge ${s.optional ? "section-badge-optional" : "section-badge-default"}`}>
                     {s.optional ? "optional" : "default"}
                   </span>
-                  <div className="section-drag-handle" style={{cursor:"grab"}}>⠿</div>
+                  <div className="section-arrows">
+                    <button
+                      className="arrow-btn"
+                      onClick={()=>moveSection(idx,-1)}
+                      disabled={idx===0}
+                      title="Move up"
+                    >▲</button>
+                    <button
+                      className="arrow-btn"
+                      onClick={()=>moveSection(idx,1)}
+                      disabled={idx===sectionState.length-1}
+                      title="Move down"
+                    >▼</button>
+                  </div>
                 </div>
               ))}
             </div>
