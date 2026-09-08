@@ -91,6 +91,30 @@ const styles = `
   .btn-parse-big:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .intake-or { text-align: center; font-size: 12px; color: #b0bbc8; font-weight: 500; letter-spacing: 1px; text-transform: uppercase; margin: 4px 0; }
 
+  /* SECTION BUILDER PAGE */
+  .sections-page { max-width: 680px; margin: 0 auto; padding: 52px 24px 80px; }
+  .sections-title { font-size: 28px; font-weight: 600; color: ${SG_BLUE}; margin-bottom: 6px; letter-spacing: -0.3px; }
+  .sections-sub { font-size: 14px; color: #7a8a9a; margin-bottom: 28px; font-weight: 300; line-height: 1.6; }
+  .section-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 28px; }
+  .section-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px; border: 1.5px solid ${SG_BORDER_GRAY}; background: white; cursor: grab; user-select: none; transition: all 0.15s; }
+  .section-row:active { cursor: grabbing; }
+  .section-row.checked { border-color: ${SG_BLUE}; background: #f0f5ff; }
+  .section-row.optional { border-style: dashed; }
+  .section-row.optional.checked { border-style: solid; }
+  .section-row.dragging-over { border-color: ${SG_TEAL}; background: #e8f8f5; }
+  .section-checkbox { width: 20px; height: 20px; border-radius: 4px; border: 2px solid #c8d4e8; background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: all 0.15s; }
+  .section-checkbox.checked { background: ${SG_BLUE}; border-color: ${SG_BLUE}; }
+  .section-drag-handle { color: #c8d4e8; font-size: 16px; cursor: grab; flex-shrink: 0; padding: 0 2px; }
+  .section-label { flex: 1; }
+  .section-label-name { font-size: 14px; font-weight: 500; color: #1a2332; }
+  .section-label-desc { font-size: 11px; color: #9aa5b4; margin-top: 2px; font-weight: 300; }
+  .section-badge { font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; letter-spacing: 0.3px; }
+  .section-badge-default { background: #edf0f5; color: #7a8a9a; }
+  .section-badge-optional { background: #d5f0ec; color: #0a6554; }
+  .sections-divider { border: none; border-top: 1.5px dashed #e2e8f0; margin: 10px 0; }
+  .btn-continue { width: 100%; background: ${SG_BLUE}; color: white; border: none; border-radius: 8px; padding: 16px; font-size: 16px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.18s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn-continue:hover { background: #1e4380; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(43,87,154,0.22); }
+
   /* CUSTOM PAGE */
   .custom-page { max-width: 720px; margin: 0 auto; padding: 52px 24px 80px; }
   .custom-title { font-size: 30px; font-weight: 600; color: ${SG_BLUE}; margin-bottom: 6px; letter-spacing: -0.3px; }
@@ -695,7 +719,9 @@ export default function App() {
   const [genErr,      setGenErr]      = useState("");
   const [generated,    setGenerated]   = useState(false);
   const [revisions,    setRevisions]   = useState("");
-  const [lastConfig,   setLastConfig]  = useState(null);
+  const [lastConfig,              setLastConfig]             = useState(null);
+  const [lastFileContents,        setLastFileContents]        = useState([]);
+  const [accumulatedInstructions, setAccumulatedInstructions] = useState("");
   const [lastDealId,   setLastDealId]  = useState(null);
   const [revisionCount, setRevisionCount] = useState(0);
   const [customPrompt, setCustomPrompt] = useState("");
@@ -745,13 +771,13 @@ export default function App() {
   const selectDoc = (type) => {
     setDocType(type); setErrors({});
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0); setFormData(prev => {
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastFileContents([]); setAccumulatedInstructions(""); setLastDealId(null); setRevisionCount(0);
+    setFormData(prev => {
       const threeMonths = new Date(); threeMonths.setMonth(threeMonths.getMonth() + 3);
-      return { closeDate: threeMonths.toISOString().split("T")[0], generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "", optionalSections: [] };
+      const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Recurring" : "";
+      return { closeDate: threeMonths.toISOString().split("T")[0], generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "", optionalSections: [], sectionOrder: null, pipeline: defaultPipeline };
     });
-    const defaultPipeline = type === "project" ? "Project" : type === "proposal" ? "Recurring" : "";
-    setFormData(prev => ({ ...prev, pipeline: defaultPipeline }));
-    setPage("form");
+    setPage(type === 'assessment' || type === 'custom' ? 'form' : 'sections');
   };
 
   const startIntake = (type) => {
@@ -763,7 +789,7 @@ export default function App() {
     setDocType(null); setFormData({}); setErrors({});
     setPastedText(""); setFiles([]); setAiKeys(new Set());
     setParsed(false); setParseErr(""); setGenErr("");
-    setGenerated(false); setRevisions(""); setLastConfig(null); setLastDealId(null); setRevisionCount(0); setFormData(prev => {
+    setGenerated(false); setRevisions(""); setLastConfig(null); setLastFileContents([]); setAccumulatedInstructions(""); setLastDealId(null); setRevisionCount(0); setFormData(prev => {
       const threeMonths = new Date(); threeMonths.setMonth(threeMonths.getMonth() + 3);
       return { closeDate: threeMonths.toISOString().split("T")[0], generatedBy: prev.generatedBy || localStorage.getItem("sg_generated_by") || "", optionalSections: [] };
     });
@@ -914,7 +940,8 @@ FIELD MAPPING:
       setAiKeys(filled);
       setDocType(suggested);
       setParsed(true);
-      setPage("form");
+      // Go to section builder for proposals and projects, skip it for assessments
+      setPage(suggested === 'assessment' ? 'form' : 'sections');
     } catch(e) {
       setParseErr("Parse failed: " + e.message);
     } finally {
@@ -1059,16 +1086,43 @@ FIELD MAPPING:
         }
       }
       setGenStep(1);
-      // On revision: pass the stored config and revision instructions directly
-      // On first generation: pass form data and file contents as usual
-      const isRevision = lastConfig && formData.additionalInstructions?.startsWith("REVISION REQUEST");
+      // Always do a full regeneration — use stored file contents on revision so
+      // original context is preserved. Accumulate all instructions over time.
+      const isRevision = lastConfig !== null && revisionCount > 0;
+      const effectiveFileContents = isRevision ? lastFileContents : fileContents;
+
+      // Store file contents after first extraction so revisions can reuse them
+      if (!isRevision && fileContents.length > 0) {
+        setLastFileContents(fileContents);
+      }
+
+      // Build accumulated instructions — stack new instructions on top of previous ones
+      const newInstructions = formData.additionalInstructions || "";
+      const revisionsText = isRevision && revisionCount > 0
+        ? [accumulatedInstructions, newInstructions].filter(Boolean).join("\n\nAdditionally: ")
+        : newInstructions;
+
+      if (newInstructions && !newInstructions.startsWith("REVISION REQUEST")) {
+        setAccumulatedInstructions(revisionsText);
+      }
+
+      // Build effective formData with accumulated instructions
+      const effectiveFormData = {
+        ...formData,
+        additionalInstructions: revisionsText,
+      };
+
       const resp = await fetch("/api/generate-document", {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(isRevision
-          ? { docType, formData, fileContents: [], previousConfig: lastConfig, revisionInstructions: formData.additionalInstructions }
-          : { docType, formData, pastedText, fileContents, optionalSections: formData.optionalSections || [] }
-        ),
+        body: JSON.stringify({
+          docType,
+          formData: effectiveFormData,
+          pastedText,
+          fileContents: effectiveFileContents,
+          optionalSections: formData.optionalSections || [],
+          sectionOrder: formData.sectionOrder || null,
+        }),
       });
       setGenStep(2);
       if (!resp.ok) {
@@ -1356,6 +1410,123 @@ FIELD MAPPING:
         </div>
       )}
 
+      {/* ── SECTIONS ── */}
+      {page==="sections" && (() => {
+        // All sections — default ones first, optional ones at bottom
+        const ALL_SECTIONS = [
+          { key:"introduction",        label:"Proposal Introduction",           desc:"Opening statement and context",                       optional:false },
+          { key:"project_confirmation",label:"Project Confirmation",            desc:"Scope reference and commercial framing",              optional:false, docTypes:["project"] },
+          { key:"service_confirmation",label:"Service Confirmation",            desc:"What Solution Group will deliver",                    optional:false, docTypes:["proposal"] },
+          { key:"engineering_scope",   label:"Engineering Scope Summary",       desc:"Technical system narrative",                          optional:false, docTypes:["project"] },
+          { key:"commercial_summary",  label:"Commercial Summary",              desc:"Pricing table and investment totals",                  optional:false },
+          { key:"timeline",            label:"Project Timeline",                desc:"Schedule phases (only if data provided)",             optional:false },
+          { key:"assumptions",         label:"Key Assumptions & Exclusions",    desc:"Contract assumptions and scope boundaries",           optional:false },
+          { key:"next_steps",          label:"Next Steps",                      desc:"Action items and path to execution",                  optional:false },
+          // Optional sections
+          { key:"opticlear",           label:"OptiClear Remote Monitoring",     desc:"Platform features and dashboard capabilities",        optional:true },
+          { key:"safety",              label:"Operational Safety Support",      desc:"Auditing, training, near-miss, 5S program",           optional:true },
+          { key:"sg_academy",          label:"Solution Group Academy",          desc:"Operator training and certification programs",        optional:true },
+          { key:"kpi_reporting",       label:"KPI Reporting & Dashboard",       desc:"Executive dashboard and reporting cadence",           optional:true },
+        ].filter(s => !s.docTypes || s.docTypes.includes(docType));
+
+        // Initialize section order state from formData or defaults
+        const initSections = () => {
+          const stored = formData.sectionBuilderState;
+          if (stored) return stored;
+          return ALL_SECTIONS.map(s => ({ ...s, checked: !s.optional }));
+        };
+
+        // Use a ref-based approach — store in formData.sectionBuilderState
+        const sectionState = formData.sectionBuilderState || ALL_SECTIONS.map(s => ({ ...s, checked: !s.optional }));
+
+        const updateSections = (newState) => {
+          setFormData(prev => ({ ...prev, sectionBuilderState: newState }));
+        };
+
+        const toggleSection = (key) => {
+          updateSections(sectionState.map(s => s.key === key ? { ...s, checked: !s.checked } : s));
+        };
+
+        let dragSrc = null;
+
+        const onDragStart = (e, idx) => {
+          dragSrc = idx;
+          e.dataTransfer.effectAllowed = 'move';
+        };
+
+        const onDragOver = (e, idx) => {
+          e.preventDefault();
+          if (dragSrc === null || dragSrc === idx) return;
+          const reordered = [...sectionState];
+          const [moved] = reordered.splice(dragSrc, 1);
+          reordered.splice(idx, 0, moved);
+          dragSrc = idx;
+          updateSections(reordered);
+        };
+
+        const onDragEnd = () => { dragSrc = null; };
+
+        const handleContinue = () => {
+          const checkedKeys = sectionState.filter(s => s.checked).map(s => s.key);
+          const optionalSelected = checkedKeys.filter(k => ALL_SECTIONS.find(s => s.key === k && s.optional));
+          const order = checkedKeys;
+          setFormData(prev => ({
+            ...prev,
+            optionalSections: optionalSelected,
+            sectionOrder: order,
+            sectionBuilderState: sectionState,
+          }));
+          setPage("form");
+        };
+
+        const checkedCount = sectionState.filter(s => s.checked).length;
+
+        return (
+          <div className="sections-page">
+            <button className="form-back" onClick={()=>setPage("intake")}>← Back</button>
+            <div className="sections-title">Build your document</div>
+            <div className="sections-sub">
+              Check the sections to include and drag to reorder. Default sections are pre-selected.
+            </div>
+
+            <div className="section-list">
+              {sectionState.map((s, idx) => (
+                <div
+                  key={s.key}
+                  className={`section-row${s.checked ? " checked" : ""}${s.optional ? " optional" : ""}`}
+                  draggable
+                  onDragStart={e => onDragStart(e, idx)}
+                  onDragOver={e => onDragOver(e, idx)}
+                  onDragEnd={onDragEnd}
+                >
+                  <div
+                    className={`section-checkbox${s.checked ? " checked" : ""}`}
+                    onClick={() => toggleSection(s.key)}
+                  >
+                    {s.checked && <span style={{color:"white",fontSize:12,lineHeight:1,fontWeight:700}}>✓</span>}
+                  </div>
+                  <div className="section-label">
+                    <div className="section-label-name">{s.label}</div>
+                    <div className="section-label-desc">{s.desc}</div>
+                  </div>
+                  <span className={`section-badge ${s.optional ? "section-badge-optional" : "section-badge-default"}`}>
+                    {s.optional ? "optional" : "default"}
+                  </span>
+                  <div className="section-drag-handle" title="Drag to reorder">⠿</div>
+                </div>
+              ))}
+            </div>
+
+            <button className="btn-continue" onClick={handleContinue} disabled={checkedCount === 0}>
+              Continue to Deal Details →
+            </button>
+            <div style={{textAlign:"center",marginTop:10,fontSize:12,color:"#b0bbc8"}}>
+              {checkedCount} section{checkedCount !== 1 ? "s" : ""} selected
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── CUSTOM ── */}
       {page==="custom" && (
         <div className="custom-page">
@@ -1467,60 +1638,6 @@ FIELD MAPPING:
               </div>
             </div>
 
-            {/* OPTIONAL SECTIONS */}
-            {docType !== "assessment" && docType !== "custom" && (
-              <div className="section" style={{padding:"16px 28px"}}>
-                <div className="section-title" style={{marginBottom:4}}>Optional Sections</div>
-                <div style={{fontSize:12,color:"#9aa5b4",marginBottom:14,fontWeight:300}}>
-                  Select any additional sections to include in the document
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  {[
-                    { key:"opticlear",    label:"OptiClear Remote Monitoring", desc:"Platform features and dashboard capabilities" },
-                    { key:"safety",       label:"Operational Safety Support",  desc:"Auditing, training, near-miss, 5S program" },
-                    { key:"sg_academy",   label:"Solution Group Academy",       desc:"Operator training and certification programs" },
-                    { key:"kpi_reporting",label:"KPI Reporting & Dashboard",    desc:"Executive dashboard and reporting cadence" },
-                  ].map(opt => {
-                    const selected = (formData.optionalSections || []).includes(opt.key);
-                    return (
-                      <div
-                        key={opt.key}
-                        onClick={() => {
-                          setFormData(prev => {
-                            const current = prev.optionalSections || [];
-                            const updated = selected
-                              ? current.filter(k => k !== opt.key)
-                              : [...current, opt.key];
-                            return { ...prev, optionalSections: updated };
-                          });
-                        }}
-                        style={{
-                          display:"flex", alignItems:"flex-start", gap:10,
-                          padding:"10px 12px", borderRadius:6, cursor:"pointer",
-                          border:`1.5px solid ${selected ? SG_BLUE : SG_BORDER_GRAY}`,
-                          background: selected ? "#f0f5ff" : "white",
-                          transition:"all 0.15s",
-                        }}
-                      >
-                        <div style={{
-                          width:18, height:18, borderRadius:3, flexShrink:0, marginTop:1,
-                          border:`2px solid ${selected ? SG_BLUE : "#c8d4e8"}`,
-                          background: selected ? SG_BLUE : "white",
-                          display:"flex", alignItems:"center", justifyContent:"center",
-                        }}>
-                          {selected && <span style={{color:"white",fontSize:11,lineHeight:1}}>✓</span>}
-                        </div>
-                        <div>
-                          <div style={{fontSize:13,fontWeight:600,color: selected ? SG_BLUE : "#1a2332"}}>{opt.label}</div>
-                          <div style={{fontSize:11,color:"#9aa5b4",marginTop:2,fontWeight:300}}>{opt.desc}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* DEAL INFO */}
             <div className="section">
               <div className="section-title">Deal Information</div>
@@ -1603,15 +1720,13 @@ FIELD MAPPING:
               <div className="revision-box">
                 <h4>Need to make some changes?</h4>
                 <p>
-                  Describe specific changes — e.g. "Update the total to $380,000", "Add a signature block", "Change the close date to September 1st".
+                  Describe what you want changed. This triggers a full regeneration using all your original files plus everything you've specified so far — the more detail the better.
                   {revisionCount > 0 && <span style={{color:"#9aa5b4"}}> ({revisionCount} revision{revisionCount > 1 ? "s" : ""} made)</span>}
                 </p>
 
-                {/* After 2+ revisions — show start-from-scratch guidance */}
                 {revisionCount >= 2 && (
-                  <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:6,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#92400e",lineHeight:1.6}}>
-                    <strong>Tip:</strong> The revision tool works best for targeted changes — updating a number, adding a clause, changing a date.
-                    If you need broader changes to the document structure, layout, or overall content, starting fresh will give better results.
+                  <div style={{background:"#f0f5ff",border:"1px solid #c8d4e8",borderRadius:6,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#2B579A",lineHeight:1.6}}>
+                    <strong>Note:</strong> Each regeneration builds on all previous instructions. If the document is moving in the wrong direction entirely, use Start Over to reset.
                   </div>
                 )}
 
@@ -1630,9 +1745,10 @@ FIELD MAPPING:
                       setGenerated(false);
                       setRevisions("");
                       setLastConfig(null);
+                      setLastFileContents([]);
+                      setAccumulatedInstructions("");
                       setRevisionCount(0);
                       setGenErr("");
-                      // Cancel any pending email — user is starting over
                       if (emailTimerRef.current) clearTimeout(emailTimerRef.current);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
@@ -1646,103 +1762,17 @@ FIELD MAPPING:
                     onClick={() => {
                       const revisionText = revisions.trim();
                       const todayStr = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
-                      const revisionWithDate = `Today's date is ${todayStr}. ${revisionText}`;
+                      // Stack new instructions on accumulated context
+                      const newInstructions = accumulatedInstructions
+                        ? accumulatedInstructions + "\n\nAdditional revision: " + revisionText + " (Today's date: " + todayStr + ")"
+                        : revisionText + " (Today's date: " + todayStr + ")";
+                      setAccumulatedInstructions(newInstructions);
+                      setFormData(prev => ({ ...prev, additionalInstructions: newInstructions }));
                       setRevisions("");
                       setGenerated(false);
                       setRevisionCount(prev => prev + 1);
-                      setFormData(prev => {
-                        const updated = {
-                          ...prev,
-                          includeSignature: prev.includeSignature || "",
-                          additionalInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionWithDate,
-                        };
-                        setTimeout(() => {
-                          setGenerating(true);
-                          setGenStep(0);
-                          setGenErr("");
-                          fetch("/api/generate-document", {
-                            method:"POST",
-                            headers:{"Content-Type":"application/json"},
-                            body: JSON.stringify({
-                              docType,
-                              formData: updated,
-                              fileContents: [],
-                              previousConfig: lastConfig,
-                              revisionInstructions: "REVISION REQUEST — make only these specific changes, keep everything else identical: " + revisionWithDate,
-                            }),
-                          }).then(async resp => {
-                            if (!resp.ok) {
-                              const err = await resp.json().catch(()=>({}));
-                              throw new Error(err?.error || `Server error ${resp.status}`);
-                            }
-                            const configHeader = resp.headers.get('X-Document-Config');
-                            if (configHeader) {
-                              try { setLastConfig(JSON.parse(atob(configHeader))); } catch(e) {}
-                            }
-                            const revBlob = await resp.blob();
-                            const dlUrl = URL.createObjectURL(revBlob);
-                            const a = document.createElement("a");
-                            const revNow = new Date();
-                            const revDateShort = `${revNow.getMonth()+1}.${String(revNow.getDate()).padStart(2,'0')}`;
-                            const revCompany = (updated.clientShortName||updated.clientLegalName||updated.clientName||"Client").trim();
-                            const revDesc = (updated.projectTitle||updated.serviceDescription||"")
-                              .replace(/[-–—]/g,' ').replace(/[^a-zA-Z0-9\s]/g,'')
-                              .split(/\s+/).filter(Boolean).slice(0,3).join(' ');
-                            const revFilename = `${revCompany}${revDesc ? ' '+revDesc : ''} - ${revDateShort}.docx`;
-                            a.href=dlUrl; a.download=revFilename; a.click();
-                            URL.revokeObjectURL(dlUrl);
-                            setGenerating(false);
-                            setGenerated(true);
-                            // Update HubSpot deal on revision
-                            if (docType !== "assessment") {
-                              fetch("/api/hubspot", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  docType,
-                                  clientName:           updated.clientLegalName || updated.clientName,
-                                  clientShortName:      updated.clientShortName,
-                                  projectTitle:         updated.projectTitle,
-                                  pipeline:             updated.pipeline,
-                                  dealAmount:           updated.dealAmount,
-                                  closeDate:            updated.closeDate,
-                                  closeProbability:     updated.closeProbability,
-                                  sgContactName:        updated.sgContactName,
-                                  sgContactEmail:       updated.sgContactEmail,
-                                  customerContactName:  updated.customerContactName,
-                                  customerContactEmail: updated.customerContactEmail,
-                                  managementCost:       updated.managementCost,
-                                  equipmentCost:        updated.equipmentCost,
-                                  laborCost:            updated.laborCost,
-                                  technologyCost:       updated.technologyCost,
-                                  projectLengthDays:    updated.projectLengthDays,
-                                  contractLengthDays:   updated.contractLengthDays,
-                                  existingDealId:       lastDealId,
-                                  generatedBy:          updated.generatedBy,
-                                  dealSource:           updated.dealSource,
-                                }),
-                              }).then(r => r.json()).then(data => {
-                                if (data?.dealId) setLastDealId(data.dealId);
-                                // Reset email timer — revision pushes the clock back 10 min
-                                scheduleEmail({
-                                  docType,
-                                  clientName:          updated.clientLegalName || updated.clientName,
-                                  dealAmount:          updated.dealAmount,
-                                  pipeline:            updated.pipeline,
-                                  sgContactName:       updated.sgContactName,
-                                  customerContactName: updated.customerContactName,
-                                  closeDate:           updated.closeDate,
-                                  dealId:              data?.dealId,
-                                });
-                              }).catch(e => console.warn('HubSpot revision update failed:', e.message));
-                            }
-                          }).catch(e => {
-                            setGenerating(false);
-                            setGenErr(`Revision failed: ${e.message}`);
-                          });
-                        }, 0);
-                        return updated;
-                      });
+                      // Small delay to let state commit then call handleGenerate
+                      setTimeout(() => handleGenerate(), 50);
                     }}
                   >
                     ↻ Regenerate with Changes
