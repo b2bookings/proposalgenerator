@@ -598,6 +598,13 @@ RULES:
 - Apply ALL user instructions above precisely and completely before returning the config
 - If instructions ask for a new section, add it as a key in the JSON and populate it fully
 - If instructions ask for currency change, convert all amounts and set currency_symbol
+- REDUNDANCY RULE: Every fact, term, dollar amount, or commitment must appear exactly once, in the section where a reader would most naturally look for it. Specifically:
+  * Recurring or subscription fees: state amount, coverage, and timing once only — in the Commercial Summary line item. Do not repeat in Introduction, Service Confirmation, Assumptions, or Next Steps.
+  * Sales tax treatment and proposal validity period: appear once only in the Commercial Summary. Do not restate elsewhere.
+  * Dates: reference a date once as the source of truth; use "the date above" or "the start date noted in the Commercial Summary" for any other mention rather than restating the literal date.
+  * Procedural commitments (lead times, purchase orders, authorization steps): consolidate into Next Steps only — do not preview earlier and repeat there.
+  * If a fact is relevant to two sections, place it in the section where it belongs and cross-reference from the other ("see Commercial Summary") rather than restating it.
+  * Before finalizing, mentally scan all sections for any phrase, dollar amount, or commitment that appears more than once and consolidate.
 
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:
@@ -697,6 +704,13 @@ CRITICAL RULES:
 - Timeline: ONLY include if the uploaded documents explicitly contain a schedule with specific timeframes (e.g. "Weeks 1-4", "Phase 1: 3 weeks", "Start: March 1"). Do NOT infer, estimate, or generate a timeline from project scope. Do NOT include a timeline just because there is a start date or project length. If no explicit schedule with phases or week ranges exists in the source material, return timeline as null or an empty array.
 - Contact names: only include if you have both first AND last name. Single names (e.g. "Gram") must be omitted entirely from contacts.
 - Never use em dashes anywhere. Use commas or periods instead.
+- REDUNDANCY RULE: Every fact, term, dollar amount, or commitment must appear exactly once, in the section where a reader would most naturally look for it. Specifically:
+  * Recurring or subscription fees: state amount, coverage, and timing once only — in the Commercial Summary line item. Do not repeat in Engineering Scope, Assumptions, or Next Steps.
+  * Sales tax treatment and proposal validity period: appear once only in the Commercial Summary. Do not restate elsewhere.
+  * Dates (start date, mobilization date, proposal date): reference each date once as the source of truth; use "the date above" or "the start date noted in the Commercial Summary" for any other mention rather than restating the literal date.
+  * Procedural commitments (lead times, purchase orders, authorization steps): consolidate into Next Steps only — do not preview earlier and repeat there.
+  * If a fact is relevant to two sections, place it in the section where it belongs and cross-reference from the other ("see Commercial Summary") rather than restating it.
+  * Before finalizing, mentally scan all sections for any phrase, dollar amount, or commitment that appears more than once and consolidate.
 
 FORM DATA: ${JSON.stringify(formData)}
 ${fileText ? `FILE CONTENT:\n${fileText}` : ''}
@@ -785,6 +799,7 @@ Apply these instructions with full reasoning ability:
 - If asked to add a signature block, set "include_signature": true
 - If asked to remove a signature block, set "include_signature": false
 - Never use em dashes
+- REDUNDANCY RULE: Every fact, dollar amount, or commitment must appear exactly once in the most relevant section. If a change introduces a fact already stated elsewhere, remove the duplicate rather than keeping both.
 - Return ONLY valid JSON, no markdown, no preamble`;
 
       const raw = await callClaude([{ role: 'user', content: revisionPrompt }], 4096);
