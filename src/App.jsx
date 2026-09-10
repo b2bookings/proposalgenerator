@@ -480,6 +480,35 @@ async function readDocxAsText(file) {
   return result.value;
 }
 
+async function readSpreadsheetAsText(file) {
+  // Load SheetJS from CDN if not already loaded
+  if (!window.XLSX) {
+    await new Promise((res, rej) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      s.onload = res;
+      s.onerror = () => rej(new Error("Failed to load SheetJS"));
+      document.head.appendChild(s);
+    });
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = window.XLSX.read(arrayBuffer, { type: "array" });
+  // Convert each sheet to CSV text and concatenate
+  const parts = [];
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    const csv = window.XLSX.utils.sheet_to_csv(sheet, { skipHidden: true });
+    // Filter out mostly-empty rows to keep token count reasonable
+    const filtered = csv.split('\n')
+      .filter(row => row.replace(/,/g, '').trim().length > 0)
+      .join('\n');
+    if (filtered.trim()) {
+      parts.push(`[Sheet: ${sheetName}]\n${filtered}`);
+    }
+  }
+  return parts.join('\n\n');
+}
+
 function buildParsePrompt(docType, pastedText, fileNames) {
   const allKeys = [
     ...PIPELINE_FIELDS,
@@ -811,6 +840,9 @@ export default function App() {
         if (f.name.endsWith(".docx") || f.type.includes("wordprocessingml")) {
           const text = await readDocxAsText(f);
           fileContents.push(`[Document: ${f.name}]\n${text}`);
+        } else if (f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.type.includes("spreadsheetml") || f.type.includes("ms-excel")) {
+          const text = await readSpreadsheetAsText(f);
+          fileContents.push(`[Spreadsheet: ${f.name}]\n${text}`);
         } else if (f.name.endsWith(".csv") || f.type==="text/csv" || f.type==="text/plain") {
           const text = await f.text();
           fileContents.push(`[File: ${f.name}]\n${text}`);
@@ -863,6 +895,9 @@ export default function App() {
         } else if (f.name.endsWith(".docx") || f.type.includes("wordprocessingml")) {
           const text = await readDocxAsText(f);
           msgContent.push({ type:"text", text:"[Document: " + f.name + "]\n" + text });
+        } else if (f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.type.includes("spreadsheetml") || f.type.includes("ms-excel")) {
+          const text = await readSpreadsheetAsText(f);
+          msgContent.push({ type:"text", text:"[Spreadsheet: " + f.name + "]\n" + text });
         } else if (f.name.endsWith(".csv") || f.type==="text/csv" || f.type==="text/plain") {
           const text = await f.text();
           msgContent.push({ type:"text", text:"[File: " + f.name + "]\n" + text });
@@ -1005,11 +1040,12 @@ FIELD MAPPING:
         } else if (f.name.endsWith(".docx") || f.type.includes("wordprocessingml")) {
           const text = await readDocxAsText(f);
           content.push({ type:"text", text:`[Document: ${f.name}]\n${text}` });
+        } else if (f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.type.includes("spreadsheetml") || f.type.includes("ms-excel")) {
+          const text = await readSpreadsheetAsText(f);
+          content.push({ type:"text", text:`[Spreadsheet: ${f.name}]\n${text}` });
         } else if (f.name.endsWith(".csv") || f.type==="text/csv" || f.type==="application/csv" || f.type==="text/plain") {
           const text = await f.text();
           content.push({ type:"text", text:`[File: ${f.name}]\n${text}` });
-        } else if (f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.type.includes("spreadsheetml")) {
-          content.push({ type:"text", text:`[Spreadsheet attached: ${f.name} — extract any pricing, schedule, or field data visible in this file]` });
         }
       }
       content.push({ type:"text", text:buildParsePrompt(docType, pastedText, files.map(f=>f.name)) });
@@ -1085,6 +1121,9 @@ FIELD MAPPING:
         if (f.name.endsWith(".docx") || f.type.includes("wordprocessingml")) {
           const text = await readDocxAsText(f);
           fileContents.push(`[Document: ${f.name}]\n${text}`);
+        } else if (f.name.endsWith(".xlsx") || f.name.endsWith(".xls") || f.type.includes("spreadsheetml") || f.type.includes("ms-excel")) {
+          const text = await readSpreadsheetAsText(f);
+          fileContents.push(`[Spreadsheet: ${f.name}]\n${text}`);
         } else if (f.name.endsWith(".csv") || f.type==="text/csv" || f.type==="text/plain") {
           const text = await f.text();
           fileContents.push(`[File: ${f.name}]\n${text}`);
